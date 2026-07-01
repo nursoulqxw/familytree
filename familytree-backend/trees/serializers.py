@@ -16,13 +16,23 @@ class RelationshipSerializer(serializers.ModelSerializer):
         model = Relationship
         fields = ['id', 'person_from', 'person_to', 'relationship_type']
 
+class FamilyTreeListSerializer(serializers.ModelSerializer):
+    """Лёгкий сериализатор для списка деревьев — без persons/relationships.
+    Полный граф отдаёт отдельный эндпоинт full_tree (лениво, по запросу для одного дерева),
+    иначе список из N деревьев стоил бы 2*N лишних SQL-запросов (N+1)."""
+    class Meta:
+        model = FamilyTree
+        fields = ['id', 'name', 'privacy', 'share_token']
+        read_only_fields = ['share_token']
+
 class FamilyTreeDetailSerializer(serializers.ModelSerializer):
     persons = PersonSerializer(many=True, read_only=True)
     relationships = RelationshipSerializer(many=True, read_only=True)
-    
+
     class Meta:
         model = FamilyTree
-        fields = ['id', 'name', 'privacy', 'persons', 'relationships']
+        fields = ['id', 'name', 'privacy', 'share_token', 'persons', 'relationships']
+        read_only_fields = ['share_token']
 
 class AuditLogSerializer(serializers.ModelSerializer):
     class Meta:

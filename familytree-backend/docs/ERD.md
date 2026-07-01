@@ -1,6 +1,6 @@
 # ER-диаграмма базы данных (FamilyTree backend)
 
-Сгенерировано по фактическим моделям Django (`users/models.py`, `trees/models.py`, состояние на 2026-07-01, после миграций `trees.0002_treemember` и `trees.0003_person_extra_data_lifeevent`).
+Сгенерировано по фактическим моделям Django (`users/models.py`, `trees/models.py`, состояние на 2026-07-01, после миграций `trees.0002_treemember`, `trees.0003_person_extra_data_lifeevent` и `trees.0004_familytree_share_token`).
 Открывается как обычный Mermaid-диаграмма — GitHub, GitLab и VS Code (расширение Markdown Preview Mermaid) рендерят её автоматически.
 
 ```mermaid
@@ -57,6 +57,7 @@ erDiagram
         int owner_id FK
         string name
         string privacy "private | link | public"
+        string share_token UK "активен только при privacy=link"
         datetime created_at
         datetime updated_at
     }
@@ -119,13 +120,19 @@ erDiagram
 - Уникальность `(person_from, person_to, relationship_type)` не даёт задублировать одну и ту же связь.
 - **Person.extra_data** (JSONField → в Postgres это колонка `jsonb`): гибкое хранилище нестандартных анкетных полей (профессия, национальность и т.п.), которые не у каждой семьи одинаковые. Не требует миграции при добавлении нового произвольного поля.
 - **Person → LifeEvent** (1 ко многим): хронология жизни — отдельная таблица, а не поле в `Person`. Это намеренно: `full_tree` (граф для фронтенда) отдаёт только компактный `PersonSerializer` без событий, а `LifeEvent` подгружается отдельным запросом `GET /api/trees/{tree_id}/persons/{person_id}/life-events/` — так соблюдается требование ТЗ про ленивую загрузку детальной информации о профилях (п. 3.1).
+- **FamilyTree.privacy + share_token**: `privacy` теперь реально управляет доступом на чтение (не только хранится как метка). `private` — только участники (`TreeMember`); `public` — читает любой авторизованный пользователь, даже не участник; `link` — читает любой авторизованный пользователь, если передаст верный `share_token` (например, `GET /api/trees/4/?share_token=...`). Во всех трёх случаях **запись** (создание/изменение persons, relationships, life-events, настроек дерева) разрешена только реальным `TreeMember` с ролью `owner`/`editor` — privacy расширяет только чтение, не права редактирования. `audit_log` не подчиняется privacy — доступен только участникам, даже если дерево публичное.
+- **Список деревьев (`GET /api/trees/`) отдаёт `FamilyTreeListSerializer`**, а не `FamilyTreeDetailSerializer` — только `id/name/persons/relationships` не включены. Это осознанное изменение формы ответа (было: каждый элемент списка содержал вложенные `persons`/`relationships`) — вложенные данные остаются только в `retrieve` (`GET /api/trees/{id}/`) и в `full_tree`. Если фронтенд уже ожидает `persons`/`relationships` в списке — нужно переключить его на `full_tree` для конкретного дерева.
 
 ## Известные пробелы в модели (см. также TODO в коде)
 
 Закрыто (2026-07-01):
 - миграция `trees.0002_treemember` — роли `editor`/`reader` теперь реально дают/ограничивают доступ через `TreeMember`; `accept_invite` выдаёт доступ, а не просто гасит токен; `RelationshipViewSet` и `PersonViewSet` проверяют членство в дереве, а не только `tree_id` из URL.
 - миграция `trees.0003_person_extra_data_lifeevent` — добавлено JSONB-поле `Person.extra_data` и модель `LifeEvent` (хронология жизни с вложением фото/документа).
+- миграция `trees.0004_familytree_share_token` — `privacy` (`public`/`link`) теперь реально влияет на доступ к чтению дерева, а не просто хранится как неиспользуемая метка.
+- N+1 в `GET /api/trees/` (п. 3.2 ТЗ) — список деревьев делал 2 лишних запроса на каждое дерево (вложенные `persons`/`relationships` через `tree.persons.all()`/`tree.relationships.all()` для каждого объекта списка). Исправлено через `FamilyTreeListSerializer` без вложенных полей. Остальные эндпоинты (`full_tree`, `persons`, `relationships`, `audit_log`) уже были в порядке — DRF's `PrimaryKeyRelatedField` не делает запрос на каждую строку для простых FK-полей (`person_from`, `person_to`, `user`), это внутренняя оптимизация `PKOnlyObject`. Регрессия закрыта тестами в `trees/tests.py::QueryCountRegressionTests` (сравнивают число SQL-запросов на маленьком и большом наборе данных).
 
 Осталось не реализовано (сознательно не входило в этот заход):
 - Общая медиа-галерея на персону (несколько архивных фото вне привязки к конкретному событию) — сейчас есть только `Person.photo` (одно фото) и по одному вложению на каждое `LifeEvent`.
-- N+1 / рекурсивные CTE (п. 3.1 ТЗ) — отдельная задача по оптимизации запросов, не связанная со схемой данных.
+- Рекурсивные CTE для выгрузки иерархий (п. 3.1 ТЗ) — отдельная задача, не связанная с N+1: сборка иерархии предок/потомок сейчас вообще не делается на бэкенде.
+- Уведомления об изменениях (п. 2.4 ТЗ) — пока есть только `AuditLog`, никто активно не оповещается о новых записях.
+- "Каталог" публичных деревьев — сейчас `privacy=public` открывает чтение конкретного дерева по его ID, но не добавляет его в общий список для всех пользователей; `GET /api/trees/` по-прежнему показывает только "мои" деревья.

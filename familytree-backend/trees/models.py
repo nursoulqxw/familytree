@@ -1,8 +1,12 @@
+import uuid
 from django.db import models
 from django.contrib.auth import get_user_model
 from users.models import CustomUser
 
 User = get_user_model()
+
+def generate_share_token():
+    return uuid.uuid4().hex
 
 class FamilyTree(models.Model):
     PRIVACY_CHOICES = [
@@ -10,10 +14,12 @@ class FamilyTree(models.Model):
         ('link', 'По ссылке'),
         ('public', 'Открытое'),
     ]
-    
+
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)  # "Семья Сидоровых"
     privacy = models.CharField(max_length=10, choices=PRIVACY_CHOICES, default='private')
+    # действует только когда privacy='link': кто угодно с этим токеном получает доступ на чтение
+    share_token = models.CharField(max_length=64, unique=True, default=generate_share_token, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

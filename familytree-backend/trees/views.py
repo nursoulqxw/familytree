@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from .models import FamilyTree, Person, Relationship, AuditLog, TreeMember, LifeEvent
@@ -12,17 +12,48 @@ from datetime import timedelta
 from django.utils import timezone
 from django.core.mail import send_mail
 
+def get_tree_role(tree, user):
+    """Роль пользователя как реального участника дерева (owner/editor/reader), либо None."""
+    membership = TreeMember.objects.filter(tree=tree, user=user).first()
+    return membership.role if membership else None
+
+def has_privacy_read_access(tree, request):
+    """Доступ на чтение в обход членства — согласно privacy дерева.
+    Работает только для безопасных (GET/HEAD/OPTIONS) методов: privacy не даёт прав на запись."""
+    if request.method not in SAFE_METHODS:
+        return False
+    if tree.privacy == 'public':
+        return True
+    if tree.privacy == 'link' and request.query_params.get('share_token') == tree.share_token:
+        return True
+    return False
+
 class FamilyTreeViewSet(viewsets.ModelViewSet):
     serializer_class = FamilyTreeDetailSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_serializer_class(self):
+        # список деревьев не должен тянуть persons/relationships на каждое дерево (N+1) —
+        # для этого есть отдельный эндпоинт full_tree
+        if self.action == 'list':
+            return FamilyTreeListSerializer
+        return FamilyTreeDetailSerializer
+
     def get_queryset(self):
-        # деревья, где пользователь состоит участником (владелец/редактор/читатель)
+        # деревья, где пользователь состоит участником (владелец/редактор/читатель) —
+        # это "мои деревья", а не общий каталог всех public-деревьев
         return FamilyTree.objects.filter(members__user=self.request.user).distinct()
 
     def _get_role(self, tree):
-        membership = TreeMember.objects.filter(tree=tree, user=self.request.user).first()
-        return membership.role if membership else None
+        return get_tree_role(tree, self.request.user)
+
+    def get_object(self):
+        # шире, чем get_queryset: сюда же попадают public/link-деревья, где пользователь не участник
+        tree = get_object_or_404(FamilyTree, id=self.kwargs.get('pk'))
+        if self._get_role(tree) is None and not has_privacy_read_access(tree, self.request):
+            raise PermissionDenied('Нет доступа к этому дереву')
+        self.check_object_permissions(self.request, tree)
+        return tree
 
     def perform_create(self, serializer):
         tree = serializer.save(owner=self.request.user)
@@ -42,7 +73,8 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def full_tree(self, request, pk=None):
-        """API эндпоинт: получить всё дерево для фронтенда (граф)"""
+        """API эндпоинт: получить всё дерево для фронтенда (граф).
+        Доступно участникам, а также читателям public/link-дерева (get_object это учитывает)."""
         tree = self.get_object()
         persons = tree.persons.all()
         relationships = tree.relationships.all()
@@ -54,8 +86,11 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def audit_log(self, request, pk=None):
-        """История изменений"""
+        """История изменений — только для реальных участников дерева,
+        publiс/link-читателям без членства она не показывается."""
         tree = self.get_object()
+        if self._get_role(tree) is None:
+            raise PermissionDenied('История изменений доступна только участникам дерева')
         logs = tree.audit_logs.all().order_by('-created_at')[:100]
         return Response(AuditLogSerializer(logs, many=True).data)
 
@@ -121,20 +156,22 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
         })
 
 class TreeScopedViewSet(viewsets.ModelViewSet):
-    """Общая логика для вьюсетов, работающих внутри конкретного дерева (persons, relationships)."""
+    """Общая логика для вьюсетов, работающих внутри конкретного дерева (persons, relationships, life-events)."""
     permission_classes = [IsAuthenticated]
 
     def get_tree_and_role(self):
         tree_id = self.kwargs.get('tree_id')
         tree = get_object_or_404(FamilyTree, id=tree_id)
-        membership = TreeMember.objects.filter(tree=tree, user=self.request.user).first()
-        if not membership:
+        role = get_tree_role(tree, self.request.user)
+        if role is None and not has_privacy_read_access(tree, self.request):
             raise PermissionDenied('Нет доступа к этому дереву')
-        return tree, membership.role
+        return tree, role
 
     def check_can_edit(self, role):
-        if role == 'reader':
-            raise PermissionDenied('Читатель не может изменять данные')
+        # role=None — это читатель по privacy (public/link), не участник дерева;
+        # ему, как и role='reader', писать нельзя
+        if role not in ('owner', 'editor'):
+            raise PermissionDenied('Недостаточно прав для изменения данных')
 
 class PersonViewSet(TreeScopedViewSet):
     serializer_class = PersonSerializer
