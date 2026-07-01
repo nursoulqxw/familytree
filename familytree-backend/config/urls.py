@@ -13,4 +13,11 @@ urlpatterns = [
     path('api/auth/login/', login),
     path('api/', include(router.urls)),
     path('api/trees/<int:tree_id>/persons/', PersonViewSet.as_view({'get': 'list', 'post': 'create'})),
+    path('api/trees/<int:tree_id>/persons/<int:pk>/', PersonViewSet.as_view({
+        'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy',
+    })),
+    path('api/trees/<int:tree_id>/relationships/', RelationshipViewSet.as_view({'get': 'list', 'post': 'create'})),
+    path('api/trees/<int:tree_id>/relationships/<int:pk>/', RelationshipViewSet.as_view({
+        'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy',
+    })),
 ]

@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from users.models import CustomUser
 
 User = get_user_model()
 
@@ -19,6 +20,18 @@ class FamilyTree(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=['owner', 'created_at']),
+        ]
+
+class TreeMember(models.Model):
+    tree = models.ForeignKey(FamilyTree, on_delete=models.CASCADE, related_name='members')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tree_memberships')
+    role = models.CharField(max_length=20, choices=CustomUser.ROLES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('tree', 'user')
+        indexes = [
+            models.Index(fields=['user', 'tree']),
         ]
 
 class Person(models.Model):
@@ -82,8 +95,6 @@ class AuditLog(models.Model):
         indexes = [
             models.Index(fields=['tree', 'created_at']),
         ]
-
-from users.models import CustomUser
 
 class Invitation(models.Model):
     tree = models.ForeignKey(FamilyTree, on_delete=models.CASCADE)
