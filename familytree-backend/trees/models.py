@@ -46,7 +46,11 @@ class Person(models.Model):
     
     bio = models.TextField(blank=True)  # воспоминания, заметки
     photo = models.ImageField(upload_to='persons/%Y/%m/', null=True, blank=True)
-    
+
+    # произвольные нестандартные анкетные поля (национальность, профессия и т.п.),
+    # которые не у каждой семьи одинаковые и не заслуживают отдельной колонки
+    extra_data = models.JSONField(default=dict, blank=True)
+
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -58,6 +62,22 @@ class Person(models.Model):
     
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
+
+class LifeEvent(models.Model):
+    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name='life_events')
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    event_date = models.DateField(null=True, blank=True)
+    attachment = models.FileField(upload_to='events/%Y/%m/', null=True, blank=True)  # фото или скан документа
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['event_date', 'created_at']
+        indexes = [
+            models.Index(fields=['person', 'event_date']),
+        ]
 
 class Relationship(models.Model):
     RELATIONSHIP_TYPES = [

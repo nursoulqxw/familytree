@@ -1,10 +1,15 @@
 from rest_framework import serializers
-from .models import Person, Relationship, FamilyTree, AuditLog
+from .models import Person, Relationship, FamilyTree, AuditLog, LifeEvent
 
 class PersonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Person
-        fields = ['id', 'first_name', 'last_name', 'birth_date', 'death_date', 'bio', 'photo']
+        fields = ['id', 'first_name', 'last_name', 'birth_date', 'death_date', 'bio', 'photo', 'extra_data']
+
+class LifeEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LifeEvent
+        fields = ['id', 'title', 'description', 'event_date', 'attachment', 'created_at']
 
 class RelationshipSerializer(serializers.ModelSerializer):
     class Meta:

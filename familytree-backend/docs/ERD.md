@@ -1,6 +1,6 @@
 # ER-диаграмма базы данных (FamilyTree backend)
 
-Сгенерировано по фактическим моделям Django (`users/models.py`, `trees/models.py`, состояние на 2026-07-01, после добавления `TreeMember` в миграции `trees.0002_treemember`).
+Сгенерировано по фактическим моделям Django (`users/models.py`, `trees/models.py`, состояние на 2026-07-01, после миграций `trees.0002_treemember` и `trees.0003_person_extra_data_lifeevent`).
 Открывается как обычный Mermaid-диаграмма — GitHub, GitLab и VS Code (расширение Markdown Preview Mermaid) рендерят её автоматически.
 
 ```mermaid
@@ -18,6 +18,19 @@ erDiagram
 
     PERSON ||--o{ RELATIONSHIP : "person_from (outgoing)"
     PERSON ||--o{ RELATIONSHIP : "person_to (incoming)"
+    PERSON ||--o{ LIFE_EVENT : "person"
+    CUSTOM_USER ||--o{ LIFE_EVENT : "created_by"
+
+    LIFE_EVENT {
+        int id PK
+        int person_id FK
+        string title
+        text description
+        date event_date
+        file attachment "фото или скан документа"
+        int created_by_id FK "nullable, SET_NULL"
+        datetime created_at
+    }
 
     TREE_MEMBER {
         int id PK
@@ -59,6 +72,7 @@ erDiagram
         string birth_place
         text bio
         image photo
+        json extra_data "гибкие нестандартные поля (JSONB)"
         int created_by_id FK "nullable, SET_NULL"
         datetime created_at
         datetime updated_at
@@ -103,12 +117,15 @@ erDiagram
 - **FamilyTree → Person / Relationship / AuditLog / Invitation / TreeMember** (1 ко многим): всё живёт внутри дерева, при удалении дерева каскадно удаляется (`on_delete=CASCADE`).
 - **Person → Relationship**: связь моделируется как направленное ребро графа (`person_from` → `person_to`) с типом (`parent/child/spouse/sibling`), а не как обычное дерево через `parent_id`. Это позволяет хранить супругов/братьев-сестёр, но требует ручной логики построения иерархии на бэкенде или фронте.
 - Уникальность `(person_from, person_to, relationship_type)` не даёт задублировать одну и ту же связь.
+- **Person.extra_data** (JSONField → в Postgres это колонка `jsonb`): гибкое хранилище нестандартных анкетных полей (профессия, национальность и т.п.), которые не у каждой семьи одинаковые. Не требует миграции при добавлении нового произвольного поля.
+- **Person → LifeEvent** (1 ко многим): хронология жизни — отдельная таблица, а не поле в `Person`. Это намеренно: `full_tree` (граф для фронтенда) отдаёт только компактный `PersonSerializer` без событий, а `LifeEvent` подгружается отдельным запросом `GET /api/trees/{tree_id}/persons/{person_id}/life-events/` — так соблюдается требование ТЗ про ленивую загрузку детальной информации о профилях (п. 3.1).
 
 ## Известные пробелы в модели (см. также TODO в коде)
 
-Закрыто (2026-07-01, миграция `trees.0002_treemember`): роли `editor`/`reader` теперь реально дают/ограничивают доступ через `TreeMember`; `accept_invite` выдаёт доступ, а не просто гасит токен; `RelationshipViewSet` и `PersonViewSet` проверяют членство в дереве, а не только `tree_id` из URL.
+Закрыто (2026-07-01):
+- миграция `trees.0002_treemember` — роли `editor`/`reader` теперь реально дают/ограничивают доступ через `TreeMember`; `accept_invite` выдаёт доступ, а не просто гасит токен; `RelationshipViewSet` и `PersonViewSet` проверяют членство в дереве, а не только `tree_id` из URL.
+- миграция `trees.0003_person_extra_data_lifeevent` — добавлено JSONB-поле `Person.extra_data` и модель `LifeEvent` (хронология жизни с вложением фото/документа).
 
-Осталось не реализовано:
-
-1. **ТЗ упоминает JSONB для гибких анкетных полей** — в текущей модели `Person` все поля жёстко заданы (first_name, last_name и т.д.), JSONB-поля для произвольных атрибутов не предусмотрены.
-2. **Нет модели для timeline-событий** (п. 2.3 ТЗ — "хронология жизни") — сейчас есть только `bio` (текстовое поле) и `photo` (одно фото на человека), а не набор архивных фото/документов на профиль.
+Осталось не реализовано (сознательно не входило в этот заход):
+- Общая медиа-галерея на персону (несколько архивных фото вне привязки к конкретному событию) — сейчас есть только `Person.photo` (одно фото) и по одному вложению на каждое `LifeEvent`.
+- N+1 / рекурсивные CTE (п. 3.1 ТЗ) — отдельная задача по оптимизации запросов, не связанная со схемой данных.

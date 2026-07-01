@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
-from .models import FamilyTree, Person, Relationship, AuditLog, TreeMember
+from .models import FamilyTree, Person, Relationship, AuditLog, TreeMember, LifeEvent
 from .serializers import *
 from .models import Invitation
 import uuid
@@ -157,6 +157,35 @@ class PersonViewSet(TreeScopedViewSet):
             object_id=person.id,
             changes={'created': PersonSerializer(person).data}
         )
+
+    def perform_update(self, serializer):
+        tree, role = self.get_tree_and_role()
+        self.check_can_edit(role)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        tree, role = self.get_tree_and_role()
+        self.check_can_edit(role)
+        instance.delete()
+
+class LifeEventViewSet(TreeScopedViewSet):
+    """Хронология жизни персоны — отдельный эндпоинт, чтобы full_tree (граф)
+    оставался лёгким и не тянул события/вложения для каждого узла заранее."""
+    serializer_class = LifeEventSerializer
+
+    def get_person(self, tree):
+        return get_object_or_404(Person, id=self.kwargs.get('person_id'), tree=tree)
+
+    def get_queryset(self):
+        tree, _ = self.get_tree_and_role()
+        person = self.get_person(tree)
+        return LifeEvent.objects.filter(person=person)
+
+    def perform_create(self, serializer):
+        tree, role = self.get_tree_and_role()
+        self.check_can_edit(role)
+        person = self.get_person(tree)
+        serializer.save(person=person, created_by=self.request.user)
 
     def perform_update(self, serializer):
         tree, role = self.get_tree_and_role()
