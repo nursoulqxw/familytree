@@ -6,7 +6,8 @@
       "Bash(powershell -Command \"Get-Service -Name '*postgres*' 2>&1 | Select-Object Name, Status\")",
       "Bash(./.venv/Scripts/python.exe manage.py migrate trees)",
       "Bash(powershell -Command 'Get-Process python -ErrorAction SilentlyContinue | Where-Object {$_.MainWindowTitle -eq '\\\\'''\\\\'' } | Stop-Process -Force')",
-      "Bash(taskkill //F //IM python.exe //FI \"WINDOWTITLE eq *\")"
+      "Bash(taskkill //F //IM python.exe //FI \"WINDOWTITLE eq *\")",
+      "mcp__visualize__show_widget"
     ]
   }
 }
