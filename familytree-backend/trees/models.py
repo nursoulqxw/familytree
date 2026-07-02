@@ -85,6 +85,23 @@ class LifeEvent(models.Model):
             models.Index(fields=['person', 'event_date']),
         ]
 
+class Media(models.Model):
+    """Общая галерея архивных фото/сканов на персону — в отличие от Person.photo (одно
+    основное фото) и LifeEvent.attachment (вложение к конкретному событию), сюда попадает
+    всё остальное: старые снимки, сканы документов и т.п., не привязанные к дате/событию."""
+    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name='media')
+    file = models.FileField(upload_to='persons/%Y/%m/media/')
+    caption = models.CharField(max_length=255, blank=True)
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['person', 'created_at']),
+        ]
+
 class Relationship(models.Model):
     RELATIONSHIP_TYPES = [
         ('parent', 'Родитель'),
@@ -120,6 +137,22 @@ class AuditLog(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=['tree', 'created_at']),
+        ]
+
+class Notification(models.Model):
+    """Уведомление участнику дерева о чужом изменении (создаётся автоматически сигналом
+    на AuditLog — см. trees/signals.py). Модель под polling (GET .../?unread=true),
+    не под real-time push."""
+    tree = models.ForeignKey(FamilyTree, on_delete=models.CASCADE, related_name='notifications')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    audit_log = models.ForeignKey(AuditLog, on_delete=models.CASCADE, related_name='notifications')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'is_read']),
         ]
 
 class Invitation(models.Model):

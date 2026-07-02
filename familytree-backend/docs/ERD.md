@@ -1,6 +1,6 @@
 # ER-диаграмма базы данных (FamilyTree backend)
 
-Сгенерировано по фактическим моделям Django (`users/models.py`, `trees/models.py`, состояние на 2026-07-01, после миграций `trees.0002_treemember`, `trees.0003_person_extra_data_lifeevent` и `trees.0004_familytree_share_token`).
+Сгенерировано по фактическим моделям Django (`users/models.py`, `trees/models.py`, состояние на 2026-07-02, после миграций `trees.0002_treemember`, `trees.0003_person_extra_data_lifeevent`, `trees.0004_familytree_share_token`, `trees.0005_notification` и `trees.0006_media`).
 Открывается как обычный Mermaid-диаграмма — GitHub, GitLab и VS Code (расширение Markdown Preview Mermaid) рендерят её автоматически.
 
 ```mermaid
@@ -15,11 +15,34 @@ erDiagram
     FAMILY_TREE ||--o{ AUDIT_LOG : "tree"
     FAMILY_TREE ||--o{ INVITATION : "tree"
     FAMILY_TREE ||--o{ TREE_MEMBER : "tree"
+    FAMILY_TREE ||--o{ NOTIFICATION : "tree"
+    CUSTOM_USER ||--o{ NOTIFICATION : "user (получатель)"
+    AUDIT_LOG ||--o{ NOTIFICATION : "audit_log"
 
     PERSON ||--o{ RELATIONSHIP : "person_from (outgoing)"
     PERSON ||--o{ RELATIONSHIP : "person_to (incoming)"
     PERSON ||--o{ LIFE_EVENT : "person"
     CUSTOM_USER ||--o{ LIFE_EVENT : "created_by"
+    PERSON ||--o{ MEDIA : "person"
+    CUSTOM_USER ||--o{ MEDIA : "created_by"
+
+    MEDIA {
+        int id PK
+        int person_id FK
+        file file "фото или скан, не привязан к событию"
+        string caption
+        int created_by_id FK "nullable, SET_NULL"
+        datetime created_at
+    }
+
+    NOTIFICATION {
+        int id PK
+        int tree_id FK
+        int user_id FK "получатель"
+        int audit_log_id FK
+        bool is_read
+        datetime created_at
+    }
 
     LIFE_EVENT {
         int id PK
@@ -123,6 +146,9 @@ erDiagram
 - **FamilyTree.privacy + share_token**: `privacy` теперь реально управляет доступом на чтение (не только хранится как метка). `private` — только участники (`TreeMember`); `public` — читает любой авторизованный пользователь, даже не участник; `link` — читает любой авторизованный пользователь, если передаст верный `share_token` (например, `GET /api/trees/4/?share_token=...`). Во всех трёх случаях **запись** (создание/изменение persons, relationships, life-events, настроек дерева) разрешена только реальным `TreeMember` с ролью `owner`/`editor` — privacy расширяет только чтение, не права редактирования. `audit_log` не подчиняется privacy — доступен только участникам, даже если дерево публичное.
 - **Список деревьев (`GET /api/trees/`) отдаёт `FamilyTreeListSerializer`**, а не `FamilyTreeDetailSerializer` — только `id/name/persons/relationships` не включены. Это осознанное изменение формы ответа (было: каждый элемент списка содержал вложенные `persons`/`relationships`) — вложенные данные остаются только в `retrieve` (`GET /api/trees/{id}/`) и в `full_tree`. Если фронтенд уже ожидает `persons`/`relationships` в списке — нужно переключить его на `full_tree` для конкретного дерева.
 - **`GET /api/trees/{tree_id}/persons/{id}/ancestors/` и `.../descendants/`** — иерархия предков/потомков конкретного человека, посчитанная одним рекурсивным SQL-запросом (`WITH RECURSIVE` по таблице `Relationship`, только строки с `relationship_type='parent'`), а не циклом в Python. Ответ — список persons с полем `depth` (1 = родитель/ребёнок, 2 = дед/внук, ...), отсортированный по возрастанию. Глубина рекурсии ограничена 50 поколениями (`MAX_ANCESTRY_DEPTH` в `trees/views.py`) — защита на случай кривых данных с циклом (A — родитель B, B — родитель A).
+- **Notification** — не привязана к `tree_id` в URL, у неё свой отдельный эндпоинт `GET/POST /api/notifications/` (через `DefaultRouter`, не через ручные `path()`, как persons/relationships), потому что уведомления пользователя приходят сразу по всем его деревьям, а не по одному конкретному. Создаётся автоматически сигналом `post_save` на `AuditLog` (`trees/signals.py`) — рассылается всем `TreeMember` дерева, кроме автора изменения. Это polling-модель (`GET .../?unread=true`, `POST .../{id}/mark_read/`, `POST .../mark_all_read/`), не real-time push через WebSocket.
+- **Person → Media** (1 ко многим): общая галерея архивных фото/сканов персоны — отдельно от `Person.photo` (ровно одно основное фото) и `LifeEvent.attachment` (вложение к конкретному событию). Как и `LifeEvent`, подгружается лениво отдельным запросом `GET /api/trees/{tree_id}/persons/{person_id}/media/`, не попадает в `full_tree` (п. 3.1 ТЗ). `MEDIA_URL`/`MEDIA_ROOT` теперь настроены в `config/settings.py`, файлы раздаются через `static()` **только при `DEBUG=True`** (см. `config/urls.py`) — в проде должно быть объектное хранилище с presigned URL (архитектура из ТЗ), а не раздача файлов самим Django.
+- **`GET /api/trees/public/`** — каталог всех деревьев с `privacy=public`, виден любому авторизованному пользователю независимо от членства (не только владельцу/участникам). Это `@action(detail=False)` у `FamilyTreeViewSet` — маршрут `trees/public/` регистрируется роутером **раньше** `trees/<pk>/`, поэтому конфликта с числовым ID нет. `link`-деревья в каталог не попадают: по смыслу они видны только тому, у кого есть прямая ссылка с `share_token`, а не через публичный список. Персональный `GET /api/trees/` ("мои деревья") этим каталогом не затрагивается — это два независимых списка.
 
 ## Известные пробелы в модели (см. также TODO в коде)
 
@@ -132,8 +158,9 @@ erDiagram
 - миграция `trees.0004_familytree_share_token` — `privacy` (`public`/`link`) теперь реально влияет на доступ к чтению дерева, а не просто хранится как неиспользуемая метка.
 - N+1 в `GET /api/trees/` (п. 3.2 ТЗ) — список деревьев делал 2 лишних запроса на каждое дерево (вложенные `persons`/`relationships` через `tree.persons.all()`/`tree.relationships.all()` для каждого объекта списка). Исправлено через `FamilyTreeListSerializer` без вложенных полей. Остальные эндпоинты (`full_tree`, `persons`, `relationships`, `audit_log`) уже были в порядке — DRF's `PrimaryKeyRelatedField` не делает запрос на каждую строку для простых FK-полей (`person_from`, `person_to`, `user`), это внутренняя оптимизация `PKOnlyObject`. Регрессия закрыта тестами в `trees/tests.py::QueryCountRegressionTests` (сравнивают число SQL-запросов на маленьком и большом наборе данных).
 - Рекурсивные CTE для иерархии (п. 3.1 ТЗ) — добавлены `ancestors`/`descendants` у `PersonViewSet` (`_fetch_ancestry_chain` в `trees/views.py`), один `WITH RECURSIVE` запрос вместо цикла по поколениям в Python. Проверено тестами `trees/tests.py::AncestryChainTests`: корректность цепочки, число запросов не растёт с глубиной, устойчивость к циклическим данным (ограничение глубины).
+- миграция `trees.0005_notification` (2026-07-02) — уведомления об изменениях (п. 2.4 ТЗ): модель `Notification` + сигнал на `AuditLog` (`trees/signals.py`) + эндпоинт `GET/POST /api/notifications/`. Список сразу со `select_related('tree', 'audit_log')`, чтобы не повторить N+1 из предыдущего пункта. Проверено тестами `trees/tests.py::NotificationTests`.
+- миграция `trees.0006_media` (2026-07-02) — общая медиа-галерея на персону: модель `Media` + эндпоинт `GET/POST /api/trees/{tree_id}/persons/{person_id}/media/`. Заодно настроены `MEDIA_URL`/`MEDIA_ROOT` (их не было вообще — загруженные `Person.photo`/`LifeEvent.attachment` физически сохранялись, но не отдавались). Проверено тестами `trees/tests.py::MediaGalleryTests` и живой загрузкой файла через `runserver`.
+- Каталог публичных деревьев (2026-07-02) — `GET /api/trees/public/` показывает все `privacy=public` деревья всем авторизованным пользователям; раньше `public` открывал чтение только по известному ID. Проверено тестами `trees/tests.py::PublicTreeCatalogTests` (включая изоляцию: `private`/`link` в каталог не попадают, личный список `GET /api/trees/` не меняется).
 
 Осталось не реализовано (сознательно не входило в этот заход):
-- Общая медиа-галерея на персону (несколько архивных фото вне привязки к конкретному событию) — сейчас есть только `Person.photo` (одно фото) и по одному вложению на каждое `LifeEvent`.
-- Уведомления об изменениях (п. 2.4 ТЗ) — пока есть только `AuditLog`, никто активно не оповещается о новых записях.
-- "Каталог" публичных деревьев — сейчас `privacy=public` открывает чтение конкретного дерева по его ID, но не добавляет его в общий список для всех пользователей; `GET /api/trees/` по-прежнему показывает только "мои" деревья.
+- Real-time push уведомлений (WebSocket/Django Channels) — сейчас только polling через `GET /api/notifications/?unread=true`.

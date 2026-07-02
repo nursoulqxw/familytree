@@ -95,4 +95,4 @@ curl -X POST http://localhost:8000/api/auth/login/ -H "Content-Type: application
 
 - **`django.db.utils.OperationalError: could not connect to server`** — PostgreSQL-служба не запущена, либо неверный `DB_HOST`/`DB_PORT` в `.env`.
 - **`ImportError: PIL`** — не установлен Pillow (нужен для `ImageField` в модели `Person`). В `requirements.txt` он уже добавлен, переустанови зависимости: `pip install -r requirements.txt`.
-- **Загруженные фото не видно / нет `MEDIA_URL`** — в `config/settings.py` сейчас не настроены `MEDIA_URL`/`MEDIA_ROOT`, поэтому файлы, загружаемые через `Person.photo`, физически сохраняются, но не отдаются как статика. Это нужно донастроить отдельно, если начнёте тестировать загрузку фото.
+- **Загруженные файлы (`Person.photo`, `LifeEvent.attachment`, `Media.file`)** сохраняются в `familytree-backend/media/` и отдаются по `MEDIA_URL=/media/...` **только при `DEBUG=True`** (см. `config/urls.py`, `static()` подключён условием `if settings.DEBUG`). В проде так делать нельзя — по ТЗ хранилище должно быть объектным (S3-подобным) с presigned URL, а не раздачей файлов самим Django.

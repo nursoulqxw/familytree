@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Person, Relationship, FamilyTree, AuditLog, LifeEvent
+from .models import Person, Relationship, FamilyTree, AuditLog, LifeEvent, Notification, Media
 
 class PersonSerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,6 +10,11 @@ class LifeEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = LifeEvent
         fields = ['id', 'title', 'description', 'event_date', 'attachment', 'created_at']
+
+class MediaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Media
+        fields = ['id', 'file', 'caption', 'created_at']
 
 class RelationshipSerializer(serializers.ModelSerializer):
     class Meta:
@@ -38,3 +43,11 @@ class AuditLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuditLog
         fields = ['id', 'user', 'action', 'content_type', 'changes', 'created_at']
+
+class NotificationSerializer(serializers.ModelSerializer):
+    audit_log = AuditLogSerializer(read_only=True)
+    tree_name = serializers.CharField(source='tree.name', read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = ['id', 'tree', 'tree_name', 'audit_log', 'is_read', 'created_at']

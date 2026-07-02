@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>FamilyTree — dev console</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 960px; margin: 20px auto; padding: 0 16px; color: #222; }
+  h1 { font-size: 20px; }
+  h2 { font-size: 16px; margin-top: 28px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  fieldset { border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+  label { display: inline-block; min-width: 90px; font-size: 13px; }
+  input, select { padding: 4px 6px; margin: 3px 0; }
+  button { padding: 5px 12px; margin: 3px 4px 3px 0; cursor: pointer; }
+  .row { margin-bottom: 6px; }
+  .status { font-size: 13px; color: #555; margin: 6px 0; }
+  .error { color: #b00020; }
+  ul { padding-left: 18px; }
+  li { margin-bottom: 4px; }
+  pre { background: #f5f5f5; padding: 10px; border-radius: 6px; overflow-x: auto; font-size: 12px; max-height: 260px; }
+  .pill { display: inline-block; background: #eee; border-radius: 10px; padding: 1px 8px; font-size: 12px; margin-left: 6px; }
+  .tree-item { cursor: pointer; }
+  .tree-item:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<h1>FamilyTree — dev console</h1>
+<p class="status">Только для локальной разработки. Ходит в API того же origin (<code>/api/...</code>), поэтому CORS не мешает.</p>
+
+<h2>1. Аутентификация</h2>
+<fieldset>
+  <div class="row">
+    <input id="auth-username" placeholder="username">
+    <input id="auth-email" placeholder="email (только для регистрации)">
+    <input id="auth-password" type="password" placeholder="password">
+  </div>
+  <button onclick="register()">Зарегистрироваться</button>
+  <button onclick="login()">Войти</button>
+  <button onclick="logout()">Выйти</button>
+  <div class="status" id="auth-status">Не авторизован</div>
+</fieldset>
+
+<h2>2. Мои деревья</h2>
+<fieldset>
+  <div class="row">
+    <input id="new-tree-name" placeholder="Название дерева">
+    <select id="new-tree-privacy">
+      <option value="private">private</option>
+      <option value="link">link</option>
+      <option value="public">public</option>
+    </select>
+    <button onclick="createTree()">Создать</button>
+  </div>
+  <button onclick="loadMyTrees()">Обновить список</button>
+  <ul id="my-trees-list"></ul>
+</fieldset>
+
+<h2>3. Каталог публичных деревьев</h2>
+<fieldset>
+  <button onclick="loadPublicTrees()">Загрузить каталог</button>
+  <ul id="public-trees-list"></ul>
+</fieldset>
+
+<h2>4. Выбранное дерево: <span id="selected-tree-label">(не выбрано)</span></h2>
+<fieldset>
+  <div class="row">
+    <input id="person-first-name" placeholder="Имя">
+    <input id="person-last-name" placeholder="Фамилия">
+    <button onclick="addPerson()">Добавить человека</button>
+  </div>
+  <div class="row">
+    <button onclick="loadFullTree()">Обновить граф (full_tree)</button>
+    <button onclick="generateInvite()">Сгенерировать инвайт (role=editor)</button>
+  </div>
+  <div class="status" id="tree-status"></div>
+  <b>Люди:</b>
+  <ul id="persons-list"></ul>
+  <b>Связи:</b>
+  <ul id="relationships-list"></ul>
+</fieldset>
+
+<h2>5. Принять инвайт</h2>
+<fieldset>
+  <input id="invite-token" placeholder="токен инвайта" style="width: 320px;">
+  <button onclick="acceptInvite()">Присоединиться</button>
+</fieldset>
+
+<h2>6. Уведомления</h2>
+<fieldset>
+  <button onclick="loadNotifications()">Обновить</button>
+  <button onclick="markAllRead()">Отметить всё прочитанным</button>
+  <ul id="notifications-list"></ul>
+</fieldset>
+
+<h2>Сырой ответ последнего запроса</h2>
+<pre id="raw-output">—</pre>
+
+<script>
+let accessToken = localStorage.getItem('ft_access_token') || null;
+let selectedTreeId = null;
+
+function setToken(token) {
+  accessToken = token;
+  if (token) localStorage.setItem('ft_access_token', token);
+  else localStorage.removeItem('ft_access_token');
+  renderAuthStatus();
+}
+
+function renderAuthStatus() {
+  document.getElementById('auth-status').textContent = accessToken
+    ? 'Авторизован (токен сохранён в localStorage)'
+    : 'Не авторизован';
+}
+
+function showRaw(data) {
+  document.getElementById('raw-output').textContent = JSON.stringify(data, null, 2);
+}
+
+async function api(path, { method = 'GET', body = null, isForm = false } = {}) {
+  const headers = {};
+  if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+  if (body && !isForm) headers['Content-Type'] = 'application/json';
+
+  const resp = await fetch(path, {
+    method,
+    headers,
+    body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
+  });
+  let data = null;
+  try { data = await resp.json(); } catch (e) { data = null; }
+  showRaw({ path, status: resp.status, data });
+  if (!resp.ok) throw new Error((data && (data.detail || JSON.stringify(data))) || ('HTTP ' + resp.status));
+  return data;
+}
+
+async function register() {
+  try {
+    const data = await api('/api/auth/register/', { method: 'POST', body: {
+      username: val('auth-username'), email: val('auth-email'), password: val('auth-password'),
+    }});
+    setToken(data.access);
+  } catch (e) { alert('Ошибка регистрации: ' + e.message); }
+}
+
+async function login() {
+  try {
+    const data = await api('/api/auth/login/', { method: 'POST', body: {
+      username: val('auth-username'), password: val('auth-password'),
+    }});
+    setToken(data.access);
+  } catch (e) { alert('Ошибка входа: ' + e.message); }
+}
+
+function logout() { setToken(null); }
+
+async function createTree() {
+  try {
+    await api('/api/trees/', { method: 'POST', body: {
+      name: val('new-tree-name'), privacy: val('new-tree-privacy'),
+    }});
+    document.getElementById('new-tree-name').value = '';
+    loadMyTrees();
+  } catch (e) { alert('Ошибка создания дерева: ' + e.message); }
+}
+
+async function loadMyTrees() {
+  try {
+    const trees = await api('/api/trees/');
+    const list = document.getElementById('my-trees-list');
+    list.innerHTML = '';
+    trees.forEach(t => {
+      const li = document.createElement('li');
+      li.className = 'tree-item';
+      li.textContent = `#${t.id} ${t.name}`;
+      const pill = document.createElement('span');
+      pill.className = 'pill';
+      pill.textContent = t.privacy;
+      li.appendChild(pill);
+      li.onclick = () => selectTree(t.id, t.name);
+      list.appendChild(li);
+    });
+  } catch (e) { alert('Ошибка загрузки деревьев: ' + e.message); }
+}
+
+async function loadPublicTrees() {
+  try {
+    const trees = await api('/api/trees/public/');
+    const list = document.getElementById('public-trees-list');
+    list.innerHTML = '';
+    trees.forEach(t => {
+      const li = document.createElement('li');
+      li.className = 'tree-item';
+      li.textContent = `#${t.id} ${t.name}`;
+      li.onclick = () => selectTree(t.id, t.name);
+      list.appendChild(li);
+    });
+  } catch (e) { alert('Ошибка загрузки каталога: ' + e.message); }
+}
+
+function selectTree(id, name) {
+  selectedTreeId = id;
+  document.getElementById('selected-tree-label').textContent = `#${id} ${name}`;
+  loadFullTree();
+}
+
+async function addPerson() {
+  if (!selectedTreeId) { alert('Сначала выбери дерево (кликни по нему в списке)'); return; }
+  try {
+    await api(`/api/trees/${selectedTreeId}/persons/`, { method: 'POST', body: {
+      first_name: val('person-first-name'), last_name: val('person-last-name'),
+    }});
+    document.getElementById('person-first-name').value = '';
+    document.getElementById('person-last-name').value = '';
+    loadFullTree();
+  } catch (e) { alert('Ошибка добавления человека: ' + e.message); }
+}
+
+async function loadFullTree() {
+  if (!selectedTreeId) return;
+  try {
+    const data = await api(`/api/trees/${selectedTreeId}/full_tree/`);
+    const personsList = document.getElementById('persons-list');
+    personsList.innerHTML = '';
+    data.persons.forEach(p => {
+      const li = document.createElement('li');
+      li.textContent = `#${p.id} ${p.first_name} ${p.last_name}`;
+      personsList.appendChild(li);
+    });
+    const relList = document.getElementById('relationships-list');
+    relList.innerHTML = '';
+    data.relationships.forEach(r => {
+      const li = document.createElement('li');
+      li.textContent = `#${r.person_from} — ${r.relationship_type} → #${r.person_to}`;
+      relList.appendChild(li);
+    });
+    document.getElementById('tree-status').textContent = '';
+  } catch (e) {
+    document.getElementById('tree-status').textContent = 'Ошибка: ' + e.message;
+  }
+}
+
+async function generateInvite() {
+  if (!selectedTreeId) { alert('Сначала выбери дерево'); return; }
+  try {
+    const data = await api(`/api/trees/${selectedTreeId}/generate_invite/`, { method: 'POST', body: { role: 'editor' } });
+    alert('Токен инвайта: ' + data.token + '\n(скопирован в поле "Принять инвайт")');
+    document.getElementById('invite-token').value = data.token;
+  } catch (e) { alert('Ошибка генерации инвайта: ' + e.message); }
+}
+
+async function acceptInvite() {
+  try {
+    const data = await api('/api/trees/accept_invite/', { method: 'POST', body: { token: val('invite-token') } });
+    alert('Готово: роль ' + data.role + ' в дереве #' + data.tree_id);
+    loadMyTrees();
+  } catch (e) { alert('Ошибка принятия инвайта: ' + e.message); }
+}
+
+async function loadNotifications() {
+  try {
+    const items = await api('/api/notifications/');
+    const list = document.getElementById('notifications-list');
+    list.innerHTML = '';
+    items.forEach(n => {
+      const li = document.createElement('li');
+      const log = n.audit_log;
+      li.textContent = `[${n.is_read ? 'прочитано' : 'новое'}] дерево "${n.tree_name}": ${log.action} ${log.content_type} (${log.created_at})`;
+      list.appendChild(li);
+    });
+  } catch (e) { alert('Ошибка загрузки уведомлений: ' + e.message); }
+}
+
+async function markAllRead() {
+  try {
+    await api('/api/notifications/mark_all_read/', { method: 'POST' });
+    loadNotifications();
+  } catch (e) { alert('Ошибка: ' + e.message); }
+}
+
+function val(id) { return document.getElementById(id).value; }
+
+renderAuthStatus();
+if (accessToken) { loadMyTrees(); loadNotifications(); }
+</script>
+
+</body>
+</html>
