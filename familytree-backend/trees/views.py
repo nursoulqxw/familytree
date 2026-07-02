@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
+from django.db import connection
 from .models import FamilyTree, Person, Relationship, AuditLog, TreeMember, LifeEvent
 from .serializers import *
 from .models import Invitation
@@ -11,6 +12,48 @@ import uuid
 from datetime import timedelta
 from django.utils import timezone
 from django.core.mail import send_mail
+
+MAX_ANCESTRY_DEPTH = 50  # защита от зацикливания на случай кривых данных (A — родитель B и B — родитель A)
+
+def _fetch_ancestry_chain(tree, person, direction):
+    """Обходит цепочку parent-связей одним рекурсивным SQL-запросом (WITH RECURSIVE),
+    а не циклом в Python — иначе на каждое поколение уходил бы отдельный запрос.
+    direction: 'ancestors' — идти от person_to к person_from, 'descendants' — наоборот.
+    Возвращает [(person_id, depth), ...], depth=1 — родитель/ребёнок, depth=2 — дед/внук и т.д."""
+    table = Relationship._meta.db_table
+    if direction == 'ancestors':
+        start_col, next_col = 'person_to_id', 'person_from_id'
+    else:
+        start_col, next_col = 'person_from_id', 'person_to_id'
+
+    sql = f"""
+        WITH RECURSIVE chain(person_id, depth) AS (
+            SELECT {next_col}, 1
+            FROM {table}
+            WHERE {start_col} = %s AND relationship_type = 'parent' AND tree_id = %s
+
+            UNION
+
+            SELECT r.{next_col}, c.depth + 1
+            FROM {table} r
+            JOIN chain c ON r.{start_col} = c.person_id
+            WHERE r.relationship_type = 'parent' AND r.tree_id = %s AND c.depth < %s
+        )
+        SELECT person_id, MIN(depth) AS depth FROM chain GROUP BY person_id ORDER BY depth
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(sql, [person.id, tree.id, tree.id, MAX_ANCESTRY_DEPTH])
+        return cursor.fetchall()
+
+def _serialize_ancestry_chain(chain):
+    """chain -> список persons (одним запросом Person.objects.filter(id__in=...)) с добавленным полем depth."""
+    depth_by_id = dict(chain)
+    persons = Person.objects.filter(id__in=depth_by_id.keys())
+    data = PersonSerializer(persons, many=True).data
+    for item in data:
+        item['depth'] = depth_by_id[item['id']]
+    data.sort(key=lambda item: item['depth'])
+    return data
 
 def get_tree_role(tree, user):
     """Роль пользователя как реального участника дерева (owner/editor/reader), либо None."""
@@ -204,6 +247,23 @@ class PersonViewSet(TreeScopedViewSet):
         tree, role = self.get_tree_and_role()
         self.check_can_edit(role)
         instance.delete()
+
+    @action(detail=True, methods=['get'])
+    def ancestors(self, request, tree_id=None, pk=None):
+        """Родители, деды, прадеды... через рекурсивный CTE (п. 3.1 ТЗ), одним SQL-запросом
+        независимо от глубины дерева."""
+        tree, _ = self.get_tree_and_role()
+        person = get_object_or_404(Person, id=pk, tree=tree)
+        chain = _fetch_ancestry_chain(tree, person, 'ancestors')
+        return Response(_serialize_ancestry_chain(chain))
+
+    @action(detail=True, methods=['get'])
+    def descendants(self, request, tree_id=None, pk=None):
+        """Дети, внуки, правнуки... — та же логика, но по рёбрам в обратную сторону."""
+        tree, _ = self.get_tree_and_role()
+        person = get_object_or_404(Person, id=pk, tree=tree)
+        chain = _fetch_ancestry_chain(tree, person, 'descendants')
+        return Response(_serialize_ancestry_chain(chain))
 
 class LifeEventViewSet(TreeScopedViewSet):
     """Хронология жизни персоны — отдельный эндпоинт, чтобы full_tree (граф)

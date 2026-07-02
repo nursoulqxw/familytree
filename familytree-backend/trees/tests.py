@@ -77,3 +77,81 @@ class QueryCountRegressionTests(TestCase):
         large = self._query_count(f'/api/trees/{tree2.id}/relationships/')
 
         self.assertEqual(small, large)
+
+
+class AncestryChainTests(TestCase):
+    """Рекурсивный CTE для ancestors/descendants (п. 3.1 ТЗ)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='chain_owner', password='testpass123')
+        self.client = APIClient()
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        self.tree = FamilyTree.objects.create(owner=self.user, name='Chain Tree')
+        TreeMember.objects.create(tree=self.tree, user=self.user, role='owner')
+
+    def _make_chain(self, length):
+        """Линейная цепочка parent-связей: p0 -> p1 -> ... -> p{length}, где self = p{length//2}."""
+        people = [
+            Person.objects.create(tree=self.tree, first_name=f'Gen{i}', last_name='Chain')
+            for i in range(length + 1)
+        ]
+        for parent, child in zip(people, people[1:]):
+            Relationship.objects.create(
+                tree=self.tree, person_from=parent, person_to=child, relationship_type='parent'
+            )
+        return people
+
+    def test_ancestors_and_descendants_are_correct(self):
+        # GGP(0) -> GP(1) -> P(2) -> SELF(3) -> CHILD(4) -> GRANDCHILD(5)
+        people = self._make_chain(5)
+        self_person = people[3]
+
+        # брат/сестра (sibling) не должен попадать в ancestors/descendants — не parent-связь
+        sibling = Person.objects.create(tree=self.tree, first_name='Sibling', last_name='Chain')
+        Relationship.objects.create(
+            tree=self.tree, person_from=self_person, person_to=sibling, relationship_type='sibling'
+        )
+
+        resp = self.client.get(f'/api/trees/{self.tree.id}/persons/{self_person.id}/ancestors/')
+        self.assertEqual(resp.status_code, 200)
+        ancestors = {(item['id'], item['depth']) for item in resp.json()}
+        self.assertEqual(ancestors, {(people[2].id, 1), (people[1].id, 2), (people[0].id, 3)})
+
+        resp = self.client.get(f'/api/trees/{self.tree.id}/persons/{self_person.id}/descendants/')
+        self.assertEqual(resp.status_code, 200)
+        descendants = {(item['id'], item['depth']) for item in resp.json()}
+        self.assertEqual(descendants, {(people[4].id, 1), (people[5].id, 2)})
+
+    def test_query_count_does_not_grow_with_chain_depth(self):
+        short_chain = self._make_chain(3)
+        with CaptureQueriesContext(connection) as ctx_short:
+            resp = self.client.get(f'/api/trees/{self.tree.id}/persons/{short_chain[0].id}/descendants/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()), 3)
+
+        long_tree = FamilyTree.objects.create(owner=self.user, name='Long Chain Tree')
+        TreeMember.objects.create(tree=long_tree, user=self.user, role='owner')
+        self.tree = long_tree
+        long_chain = self._make_chain(15)
+        with CaptureQueriesContext(connection) as ctx_long:
+            resp = self.client.get(f'/api/trees/{long_tree.id}/persons/{long_chain[0].id}/descendants/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()), 15)
+
+        self.assertEqual(
+            len(ctx_short.captured_queries), len(ctx_long.captured_queries),
+            'Число SQL-запросов не должно расти с глубиной цепочки поколений',
+        )
+
+    def test_cyclic_relationship_does_not_hang(self):
+        # кривые данные: A — родитель B, B — родитель A (не должно случиться в норме, но CTE должен пережить)
+        a = Person.objects.create(tree=self.tree, first_name='A', last_name='Cycle')
+        b = Person.objects.create(tree=self.tree, first_name='B', last_name='Cycle')
+        Relationship.objects.create(tree=self.tree, person_from=a, person_to=b, relationship_type='parent')
+        Relationship.objects.create(tree=self.tree, person_from=b, person_to=a, relationship_type='parent')
+
+        resp = self.client.get(f'/api/trees/{self.tree.id}/persons/{a.id}/ancestors/')
+        self.assertEqual(resp.status_code, 200)
+        ids = {item['id'] for item in resp.json()}
+        self.assertEqual(ids, {a.id, b.id})
