@@ -8,3 +8,9 @@ tzdata==2026.2
 djangorestframework-simplejwt==5.5.1
 Pillow==12.2.0
 drf-spectacular==0.30.0
+django-cors-headers==4.9.0
+
+# тесты и покрытие (pytest-django умеет запускать и обычные django.test.TestCase)
+pytest==9.1.1
+pytest-django==4.12.0
+pytest-cov==7.1.0

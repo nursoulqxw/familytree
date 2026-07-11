@@ -9,12 +9,13 @@
 - /api/trees/<tree_id>/persons/..., .../relationships/..., .../life-events/..., .../media/...
   подключены вручную через path(), а не через роутер — эти вьюсеты (TreeScopedViewSet)
   работают в контексте конкретного дерева (tree_id берётся из URL, а не из queryset).
-- /media/... и /dev/ — только при DEBUG=True (раздача файлов и dev-консоль).
+- /media/... — раздача загруженных файлов, работает независимо от DEBUG (временное решение
+  до объектного хранилища из ТЗ). /dev/ — мини-консоль, доступна только при DEBUG=True.
 """
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
+from django.views.static import serve as serve_media
 from rest_framework.routers import DefaultRouter
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -63,11 +64,15 @@ urlpatterns = [
     path('api/trees/<int:tree_id>/persons/<int:person_id>/media/<int:pk>/', MediaViewSet.as_view({
         'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy',
     })),
+
+    # Раздача загруженных файлов (person.photo, LifeEvent.attachment, Media.file) — специально
+    # НЕ через django.conf.urls.static.static(), потому что тот работает только при DEBUG=True
+    # и молча отключается в проде, из-за чего все фото/сканы переставали открываться. До появления
+    # настоящего объектного хранилища (S3, presigned URL — п.4 ТЗ) отдаём файлы напрямую всегда;
+    # это не проверяет приватность/роли дерева и не годится под нагрузку — временное решение.
+    re_path(r'^media/(?P<path>.*)$', serve_media, {'document_root': settings.MEDIA_ROOT}),
 ]
 
 if settings.DEBUG:
-    # только для локальной разработки без S3 — прямые URL медиафайлов не проверяют
-    # приватность/роли дерева, в проде (объектное хранилище из ТЗ) это должно идти через presigned URL
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    # мини-консоль для ручного тестирования API без фронтенда
+    # мини-консоль для ручного тестирования API без фронтенда — только для локальной разработки
     urlpatterns += [path('dev/', dev_console)]

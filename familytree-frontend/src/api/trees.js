@@ -36,3 +36,11 @@ export function updateTreePrivacy(treeId, privacy) {
 export function fetchAuditLog(treeId) {
   return client.get(`/trees/${treeId}/audit_log/`).then((res) => res.data)
 }
+
+export function listMembers(treeId) {
+  return client.get(`/trees/${treeId}/members/`).then((res) => res.data)
+}
+
+export function removeMember(treeId, userId) {
+  return client.delete(`/trees/${treeId}/members/${userId}/`).then((res) => res.data)
+}

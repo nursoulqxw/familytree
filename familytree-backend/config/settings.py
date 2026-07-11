@@ -78,6 +78,7 @@ INSTALLED_APPS = [
     # Сторонние
     'rest_framework',
     'drf_spectacular',
+    'corsheaders',
 
     # Наши приложения
     'users.apps.UsersConfig',
@@ -87,6 +88,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # должен идти как можно выше — до CommonMiddleware и любых мидлварей, которые могут
+    # сами сформировать ответ, иначе Access-Control-Allow-Origin не проставится
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',

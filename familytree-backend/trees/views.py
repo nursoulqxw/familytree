@@ -83,6 +83,19 @@ def _serialize_ancestry_chain(chain):
     return data
 
 
+def log_audit(tree, user, action, content_type, object_id, changes=None):
+    """Пишет запись в AuditLog для любого действия (create/update/delete) над любой
+    сущностью дерева. Сигнал в signals.py сам разошлёт уведомления остальным участникам."""
+    AuditLog.objects.create(
+        tree=tree,
+        user=user,
+        action=action,
+        content_type=content_type,
+        object_id=object_id,
+        changes=changes or {},
+    )
+
+
 def get_tree_role(tree, user):
     """Возвращает роль пользователя как реального участника дерева.
 
@@ -181,6 +194,12 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
         if self._get_role(tree) != 'owner':
             return Response({'error': 'Только владелец может изменять настройки дерева'}, status=403)
         return super().update(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        """Сохраняет изменения дерева (name/privacy) и пишет запись в AuditLog."""
+        tree = serializer.save()
+        log_audit(tree, self.request.user, 'update', 'FamilyTree', tree.id,
+                   {'name': tree.name, 'privacy': tree.privacy})
 
     def destroy(self, request, *args, **kwargs):
         """Удаление дерева (каскадно тянет persons/relationships/логи и т.д.) — только владелец."""
@@ -296,6 +315,32 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
             'role': invitation.role,
         })
 
+    @action(detail=True, methods=['get'])
+    def members(self, request, pk=None):
+        """Список участников дерева с ролями — видно только реальным участникам
+        (в отличие от full_tree, приватность public/link сюда доступа не даёт)."""
+        tree = self.get_object()
+        if self._get_role(tree) is None:
+            raise PermissionDenied('Список участников доступен только участникам дерева')
+        members = tree.members.select_related('user').order_by('created_at')
+        return Response(TreeMemberSerializer(members, many=True).data)
+
+    @action(detail=True, methods=['delete'], url_path='members/(?P<user_id>[^/.]+)')
+    def remove_member(self, request, pk=None, user_id=None):
+        """Убирает участника из дерева — только владелец; владелец не может убрать сам себя
+        (иначе дерево осталось бы без единого владельца)."""
+        tree = self.get_object()
+        if self._get_role(tree) != 'owner':
+            return Response({'error': 'Только владелец может убирать участников'}, status=403)
+        if str(request.user.id) == str(user_id):
+            return Response({'error': 'Нельзя убрать самого себя из дерева'}, status=400)
+
+        membership = get_object_or_404(TreeMember, tree=tree, user_id=user_id)
+        removed_role = membership.role
+        membership.delete()
+        log_audit(tree, request.user, 'delete', 'TreeMember', int(user_id), {'role': removed_role})
+        return Response(status=204)
+
 
 class TreeScopedViewSet(viewsets.ModelViewSet):
     """Общая логика для вьюсетов, работающих внутри конкретного дерева
@@ -350,27 +395,24 @@ class PersonViewSet(TreeScopedViewSet):
         self.check_can_edit(role)
 
         person = serializer.save(tree=tree, created_by=self.request.user)
-
-        AuditLog.objects.create(
-            tree=tree,
-            user=self.request.user,
-            action='create',
-            content_type='Person',
-            object_id=person.id,
-            changes={'created': PersonSerializer(person).data}
-        )
+        log_audit(tree, self.request.user, 'create', 'Person', person.id,
+                   {'created': PersonSerializer(person).data})
 
     def perform_update(self, serializer):
-        """Обновление персоны — только для owner/editor дерева."""
+        """Обновление персоны — только для owner/editor дерева, пишется в AuditLog."""
         tree, role = self.get_tree_and_role()
         self.check_can_edit(role)
-        serializer.save()
+        person = serializer.save()
+        log_audit(tree, self.request.user, 'update', 'Person', person.id,
+                   {'updated': PersonSerializer(person).data})
 
     def perform_destroy(self, instance):
-        """Удаление персоны — только для owner/editor дерева."""
+        """Удаление персоны — только для owner/editor дерева, пишется в AuditLog."""
         tree, role = self.get_tree_and_role()
         self.check_can_edit(role)
+        object_id, snapshot = instance.id, PersonSerializer(instance).data
         instance.delete()
+        log_audit(tree, self.request.user, 'delete', 'Person', object_id, {'deleted': snapshot})
 
     @action(detail=True, methods=['get'])
     def ancestors(self, request, tree_id=None, pk=None):
@@ -411,19 +453,25 @@ class LifeEventViewSet(TreeScopedViewSet):
         tree, role = self.get_tree_and_role()
         self.check_can_edit(role)
         person = self.get_person(tree)
-        serializer.save(person=person, created_by=self.request.user)
+        event = serializer.save(person=person, created_by=self.request.user)
+        log_audit(tree, self.request.user, 'create', 'LifeEvent', event.id,
+                   {'created': LifeEventSerializer(event).data})
 
     def perform_update(self, serializer):
-        """Обновление события — только для owner/editor дерева."""
+        """Обновление события — только для owner/editor дерева, пишется в AuditLog."""
         tree, role = self.get_tree_and_role()
         self.check_can_edit(role)
-        serializer.save()
+        event = serializer.save()
+        log_audit(tree, self.request.user, 'update', 'LifeEvent', event.id,
+                   {'updated': LifeEventSerializer(event).data})
 
     def perform_destroy(self, instance):
-        """Удаление события — только для owner/editor дерева."""
+        """Удаление события — только для owner/editor дерева, пишется в AuditLog."""
         tree, role = self.get_tree_and_role()
         self.check_can_edit(role)
+        object_id, snapshot = instance.id, LifeEventSerializer(instance).data
         instance.delete()
+        log_audit(tree, self.request.user, 'delete', 'LifeEvent', object_id, {'deleted': snapshot})
 
 
 class MediaViewSet(TreeScopedViewSet):
@@ -447,19 +495,25 @@ class MediaViewSet(TreeScopedViewSet):
         tree, role = self.get_tree_and_role()
         self.check_can_edit(role)
         person = self.get_person(tree)
-        serializer.save(person=person, created_by=self.request.user)
+        media = serializer.save(person=person, created_by=self.request.user)
+        log_audit(tree, self.request.user, 'create', 'Media', media.id,
+                   {'created': {'caption': media.caption}})
 
     def perform_update(self, serializer):
-        """Обновление подписи/файла — только для owner/editor дерева."""
+        """Обновление подписи/файла — только для owner/editor дерева, пишется в AuditLog."""
         tree, role = self.get_tree_and_role()
         self.check_can_edit(role)
-        serializer.save()
+        media = serializer.save()
+        log_audit(tree, self.request.user, 'update', 'Media', media.id,
+                   {'updated': {'caption': media.caption}})
 
     def perform_destroy(self, instance):
-        """Удаление файла из галереи — только для owner/editor дерева."""
+        """Удаление файла из галереи — только для owner/editor дерева, пишется в AuditLog."""
         tree, role = self.get_tree_and_role()
         self.check_can_edit(role)
+        object_id, caption = instance.id, instance.caption
         instance.delete()
+        log_audit(tree, self.request.user, 'delete', 'Media', object_id, {'deleted': {'caption': caption}})
 
 
 class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
@@ -510,20 +564,37 @@ class RelationshipViewSet(TreeScopedViewSet):
         tree, _ = self.get_tree_and_role()
         return Relationship.objects.filter(tree=tree)
 
+    def _check_same_tree(self, tree, serializer):
+        """Защита от кросс-тенантной связи: person_from/person_to должны принадлежать
+        тому же дереву, что и URL, а не просто существовать в базе."""
+        person_from = serializer.validated_data.get('person_from')
+        person_to = serializer.validated_data.get('person_to')
+        for person in (person_from, person_to):
+            if person is not None and person.tree_id != tree.id:
+                raise PermissionDenied('Человек принадлежит другому дереву')
+
     def perform_create(self, serializer):
         """Создаёт связь — только для owner/editor дерева."""
         tree, role = self.get_tree_and_role()
         self.check_can_edit(role)
-        serializer.save(tree=tree)
+        self._check_same_tree(tree, serializer)
+        relationship = serializer.save(tree=tree)
+        log_audit(tree, self.request.user, 'create', 'Relationship', relationship.id,
+                   {'created': RelationshipSerializer(relationship).data})
 
     def perform_update(self, serializer):
-        """Обновление связи — только для owner/editor дерева."""
+        """Обновление связи — только для owner/editor дерева, пишется в AuditLog."""
         tree, role = self.get_tree_and_role()
         self.check_can_edit(role)
-        serializer.save()
+        self._check_same_tree(tree, serializer)
+        relationship = serializer.save()
+        log_audit(tree, self.request.user, 'update', 'Relationship', relationship.id,
+                   {'updated': RelationshipSerializer(relationship).data})
 
     def perform_destroy(self, instance):
-        """Удаление связи — только для owner/editor дерева."""
+        """Удаление связи — только для owner/editor дерева, пишется в AuditLog."""
         tree, role = self.get_tree_and_role()
         self.check_can_edit(role)
+        object_id, snapshot = instance.id, RelationshipSerializer(instance).data
         instance.delete()
+        log_audit(tree, self.request.user, 'delete', 'Relationship', object_id, {'deleted': snapshot})

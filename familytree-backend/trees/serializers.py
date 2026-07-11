@@ -1,6 +1,6 @@
 """Сериализаторы приложения trees — форма JSON, которую отдают/принимают эндпоинты API."""
 from rest_framework import serializers
-from .models import Person, Relationship, FamilyTree, AuditLog, LifeEvent, Notification, Media
+from .models import Person, Relationship, FamilyTree, AuditLog, LifeEvent, Notification, Media, TreeMember
 
 
 class PersonSerializer(serializers.ModelSerializer):
@@ -9,6 +9,20 @@ class PersonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Person
         fields = ['id', 'first_name', 'last_name', 'birth_date', 'death_date', 'bio', 'photo', 'extra_data']
+
+    def validate(self, attrs):
+        """Дата смерти не может быть раньше даты рождения (п. 3.1 ТЗ).
+
+        Берёт значения из attrs, а для partial_update — из текущего instance,
+        если поле не прислали в этом запросе.
+        """
+        birth_date = attrs.get('birth_date', getattr(self.instance, 'birth_date', None))
+        death_date = attrs.get('death_date', getattr(self.instance, 'death_date', None))
+        if birth_date and death_date and death_date < birth_date:
+            raise serializers.ValidationError(
+                {'death_date': 'Дата смерти не может быть раньше даты рождения'}
+            )
+        return attrs
 
 
 class LifeEventSerializer(serializers.ModelSerializer):
@@ -33,6 +47,18 @@ class RelationshipSerializer(serializers.ModelSerializer):
         model = Relationship
         fields = ['id', 'person_from', 'person_to', 'relationship_type']
 
+    def validate(self, attrs):
+        """Запрещает самосвязь: person_from и person_to не могут быть одним и тем же человеком."""
+        person_from = attrs.get('person_from', getattr(self.instance, 'person_from', None))
+        person_to = attrs.get('person_to', getattr(self.instance, 'person_to', None))
+
+        if person_from and person_to and person_from.id == person_to.id:
+            raise serializers.ValidationError(
+                {'person_to': 'Нельзя создать связь человека с самим собой'}
+            )
+
+        return attrs
+
 
 class FamilyTreeListSerializer(serializers.ModelSerializer):
     """Лёгкий сериализатор для списка деревьев — без persons/relationships.
@@ -55,6 +81,17 @@ class FamilyTreeDetailSerializer(serializers.ModelSerializer):
         model = FamilyTree
         fields = ['id', 'name', 'privacy', 'share_token', 'persons', 'relationships']
         read_only_fields = ['share_token']
+
+
+class TreeMemberSerializer(serializers.ModelSerializer):
+    """Один участник дерева со своей ролью — для GET .../members/."""
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+
+    class Meta:
+        model = TreeMember
+        fields = ['user_id', 'username', 'email', 'role', 'created_at']
 
 
 class AuditLogSerializer(serializers.ModelSerializer):

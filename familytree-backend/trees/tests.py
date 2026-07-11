@@ -10,9 +10,16 @@ from django.db import connection
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import FamilyTree, TreeMember, Person, Relationship, Notification, Media
+from .models import FamilyTree, TreeMember, Person, Relationship, Notification, Media, AuditLog
 
 User = get_user_model()
+
+
+def make_client(user):
+    client = APIClient()
+    refresh = RefreshToken.for_user(user)
+    client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+    return client
 
 
 class QueryCountRegressionTests(TestCase):
@@ -375,3 +382,161 @@ class PublicTreeCatalogTests(TestCase):
         self.assertEqual(len(resp2.json()), 9)  # 1 исходное + 8 новых
 
         self.assertEqual(len(ctx_small.captured_queries), len(ctx_large.captured_queries))
+
+
+class RelationshipValidationTests(TestCase):
+    """Валидация связей: нет самосвязей, нет связей между людьми из разных деревьев."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username='relval_owner', password='testpass123')
+        self.tree = FamilyTree.objects.create(owner=self.owner, name='Rel Validation Tree')
+        TreeMember.objects.create(tree=self.tree, user=self.owner, role='owner')
+        self.other_tree = FamilyTree.objects.create(owner=self.owner, name='Other Tree')
+        TreeMember.objects.create(tree=self.other_tree, user=self.owner, role='owner')
+
+        self.alice = Person.objects.create(tree=self.tree, first_name='Alice', last_name='X')
+        self.bob = Person.objects.create(tree=self.tree, first_name='Bob', last_name='X')
+        self.stranger_person = Person.objects.create(tree=self.other_tree, first_name='Stranger', last_name='Y')
+
+        self.client = make_client(self.owner)
+
+    def test_self_relationship_is_rejected(self):
+        resp = self.client.post(f'/api/trees/{self.tree.id}/relationships/', {
+            'person_from': self.alice.id, 'person_to': self.alice.id, 'relationship_type': 'parent',
+        })
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('person_to', resp.json())
+        self.assertFalse(Relationship.objects.filter(person_from=self.alice, person_to=self.alice).exists())
+
+    def test_cross_tree_relationship_is_rejected(self):
+        resp = self.client.post(f'/api/trees/{self.tree.id}/relationships/', {
+            'person_from': self.alice.id, 'person_to': self.stranger_person.id, 'relationship_type': 'parent',
+        })
+        self.assertEqual(resp.status_code, 403)
+
+    def test_normal_relationship_still_works(self):
+        resp = self.client.post(f'/api/trees/{self.tree.id}/relationships/', {
+            'person_from': self.alice.id, 'person_to': self.bob.id, 'relationship_type': 'sibling',
+        })
+        self.assertEqual(resp.status_code, 201, resp.content)
+
+
+class PersonDateValidationTests(TestCase):
+    """Дата смерти не может быть раньше даты рождения (создание и частичное обновление)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username='dateval_owner', password='testpass123')
+        self.tree = FamilyTree.objects.create(owner=self.owner, name='Date Validation Tree')
+        TreeMember.objects.create(tree=self.tree, user=self.owner, role='owner')
+        self.client = make_client(self.owner)
+
+    def test_create_with_death_before_birth_is_rejected(self):
+        resp = self.client.post(f'/api/trees/{self.tree.id}/persons/', {
+            'first_name': 'Bad', 'last_name': 'Dates', 'birth_date': '1950-01-01', 'death_date': '1940-01-01',
+        })
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('death_date', resp.json())
+
+    def test_create_with_valid_dates_succeeds(self):
+        resp = self.client.post(f'/api/trees/{self.tree.id}/persons/', {
+            'first_name': 'Good', 'last_name': 'Dates', 'birth_date': '1940-01-01', 'death_date': '1950-01-01',
+        })
+        self.assertEqual(resp.status_code, 201, resp.content)
+
+    def test_partial_update_validates_against_existing_birth_date(self):
+        person = Person.objects.create(tree=self.tree, first_name='P', last_name='Q', birth_date='1950-01-01')
+        resp = self.client.patch(
+            f'/api/trees/{self.tree.id}/persons/{person.id}/', {'death_date': '1940-01-01'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('death_date', resp.json())
+
+
+class TreeMembersTests(TestCase):
+    """Список и удаление участников дерева (GET/DELETE .../members/)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username='mem_owner', password='testpass123')
+        self.editor = User.objects.create_user(username='mem_editor', password='testpass123')
+        self.stranger = User.objects.create_user(username='mem_stranger', password='testpass123')
+
+        self.tree = FamilyTree.objects.create(owner=self.owner, name='Members Tree')
+        TreeMember.objects.create(tree=self.tree, user=self.owner, role='owner')
+        TreeMember.objects.create(tree=self.tree, user=self.editor, role='editor')
+
+        self.owner_client = make_client(self.owner)
+        self.editor_client = make_client(self.editor)
+        self.stranger_client = make_client(self.stranger)
+
+    def test_member_can_list_members(self):
+        resp = self.editor_client.get(f'/api/trees/{self.tree.id}/members/')
+        self.assertEqual(resp.status_code, 200)
+        usernames = {m['username'] for m in resp.json()}
+        self.assertEqual(usernames, {'mem_owner', 'mem_editor'})
+
+    def test_stranger_cannot_list_members(self):
+        resp = self.stranger_client.get(f'/api/trees/{self.tree.id}/members/')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_owner_can_remove_member(self):
+        resp = self.owner_client.delete(f'/api/trees/{self.tree.id}/members/{self.editor.id}/')
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(TreeMember.objects.filter(tree=self.tree, user=self.editor).exists())
+
+    def test_editor_cannot_remove_member(self):
+        resp = self.editor_client.delete(f'/api/trees/{self.tree.id}/members/{self.owner.id}/')
+        self.assertEqual(resp.status_code, 403)
+        self.assertTrue(TreeMember.objects.filter(tree=self.tree, user=self.owner).exists())
+
+    def test_owner_cannot_remove_self(self):
+        resp = self.owner_client.delete(f'/api/trees/{self.tree.id}/members/{self.owner.id}/')
+        self.assertEqual(resp.status_code, 400)
+        self.assertTrue(TreeMember.objects.filter(tree=self.tree, user=self.owner).exists())
+
+
+class AuditLogCoverageTests(TestCase):
+    """AuditLog должен писаться не только при создании Person, но и при update/delete
+    для Person и Relationship (раньше это было единственное покрытое действие)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username='audit_owner', password='testpass123')
+        self.tree = FamilyTree.objects.create(owner=self.owner, name='Audit Tree')
+        TreeMember.objects.create(tree=self.tree, user=self.owner, role='owner')
+        self.client = make_client(self.owner)
+
+    def _log_actions(self, content_type):
+        return list(
+            AuditLog.objects.filter(tree=self.tree, content_type=content_type).values_list('action', flat=True)
+        )
+
+    def test_person_update_and_delete_are_logged(self):
+        person = Person.objects.create(tree=self.tree, first_name='A', last_name='B')
+        AuditLog.objects.filter(tree=self.tree).delete()  # чистим лог создания через ORM (без API-вызова)
+
+        resp = self.client.patch(f'/api/trees/{self.tree.id}/persons/{person.id}/', {'bio': 'hi'}, format='json')
+        self.assertEqual(resp.status_code, 200)
+
+        resp = self.client.delete(f'/api/trees/{self.tree.id}/persons/{person.id}/')
+        self.assertEqual(resp.status_code, 204)
+
+        self.assertEqual(self._log_actions('Person'), ['update', 'delete'])
+
+    def test_relationship_create_update_delete_are_logged(self):
+        alice = Person.objects.create(tree=self.tree, first_name='Alice', last_name='X')
+        bob = Person.objects.create(tree=self.tree, first_name='Bob', last_name='X')
+
+        resp = self.client.post(f'/api/trees/{self.tree.id}/relationships/', {
+            'person_from': alice.id, 'person_to': bob.id, 'relationship_type': 'sibling',
+        })
+        self.assertEqual(resp.status_code, 201, resp.content)
+        rel_id = resp.json()['id']
+
+        resp = self.client.patch(
+            f'/api/trees/{self.tree.id}/relationships/{rel_id}/', {'relationship_type': 'spouse'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+
+        resp = self.client.delete(f'/api/trees/{self.tree.id}/relationships/{rel_id}/')
+        self.assertEqual(resp.status_code, 204)
+
+        self.assertEqual(self._log_actions('Relationship'), ['create', 'update', 'delete'])
