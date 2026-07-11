@@ -6,7 +6,6 @@ import RegisterPage from './pages/RegisterPage'
 import SettingsPage from './pages/SettingsPage'
 import TreeDetailPage from './pages/TreeDetailPage'
 import PrivateRoute from './routes/PrivateRoute'
-import './App.css'
 
 export default function App() {
   return (

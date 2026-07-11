@@ -17,6 +17,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+from rest_framework_simplejwt.views import TokenRefreshView
 from trees.views import (
     FamilyTreeViewSet, PersonViewSet, RelationshipViewSet, LifeEventViewSet, NotificationViewSet, MediaViewSet,
 )
@@ -37,6 +38,8 @@ urlpatterns = [
 
     path('api/auth/register/', register),
     path('api/auth/login/', login),
+    # обновление access-токена по refresh-токену (POST {"refresh": "..."} -> {"access": "..."})
+    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/', include(router.urls)),
     path('api/trees/<int:tree_id>/persons/', PersonViewSet.as_view({'get': 'list', 'post': 'create'})),
     path('api/trees/<int:tree_id>/persons/<int:pk>/', PersonViewSet.as_view({

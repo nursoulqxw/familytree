@@ -16,10 +16,23 @@ export function fullTree(treeId) {
   return client.get(`/trees/${treeId}/full_tree/`).then((res) => res.data)
 }
 
+/** Метаданные дерева (name/privacy) вместе с persons/relationships — используется на странице дерева. */
+export function getTree(treeId) {
+  return client.get(`/trees/${treeId}/`).then((res) => res.data)
+}
+
 export function generateInvite(treeId, { role, email }) {
   return client.post(`/trees/${treeId}/generate_invite/`, { role, email }).then((res) => res.data)
 }
 
 export function acceptInvite(token) {
   return client.post('/trees/accept_invite/', { token }).then((res) => res.data)
+}
+
+export function updateTreePrivacy(treeId, privacy) {
+  return client.patch(`/trees/${treeId}/`, { privacy }).then((res) => res.data)
+}
+
+export function fetchAuditLog(treeId) {
+  return client.get(`/trees/${treeId}/audit_log/`).then((res) => res.data)
 }

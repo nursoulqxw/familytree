@@ -1,79 +1,75 @@
-import { render } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import FamilyTreeGraph, { buildElements } from './FamilyTreeGraph'
-
-const tapHandlers = {}
-const fakeCy = {
-  on: vi.fn((event, selector, handler) => {
-    tapHandlers[`${event}:${selector}`] = handler
-  }),
-  removeListener: vi.fn(),
-  edges: vi.fn(() => ({ length: 0 })),
-  nodes: vi.fn(() => ({
-    length: 2,
-    union: () => ({ layout: () => ({ run: vi.fn() }) }),
-  })),
-  layout: vi.fn(() => ({ run: vi.fn() })),
-}
-
-vi.mock('react-cytoscapejs', () => ({
-  default: (props) => {
-    props.cy?.(fakeCy)
-    return <div data-testid="graph" />
-  },
-}))
+import FamilyTreeGraph, { RELATIONSHIP_LABELS } from './FamilyTreeGraph'
 
 describe('FamilyTreeGraph', () => {
   const persons = [
-    { id: 1, first_name: 'Anna', last_name: 'Ivanova' },
-    { id: 2, first_name: 'Boris', last_name: 'Ivanov' },
+    { id: 1, first_name: 'Анна', last_name: 'Иванова', birth_date: '1950-01-01', death_date: null, photo: null },
+    { id: 2, first_name: 'Борис', last_name: 'Иванов', birth_date: '1948-01-01', death_date: '2010-01-01', photo: null },
   ]
-  const relationships = [{ id: 10, person_from: 2, person_to: 1, relationship_type: 'parent' }]
+  const relationships = [{ id: 10, person_from: 2, person_to: 1, relationship_type: 'spouse' }]
 
-  it('builds cytoscape nodes and edges from persons and relationships', () => {
-    const elements = buildElements(persons, relationships)
+  function renderGraph(props = {}) {
+    return render(
+      <FamilyTreeGraph
+        persons={persons}
+        relationships={relationships}
+        selectedId={null}
+        onSelectMember={vi.fn()}
+        onAddMember={vi.fn()}
+        searchQuery=""
+        setSearchQuery={vi.fn()}
+        {...props}
+      />,
+    )
+  }
 
-    expect(elements).toHaveLength(3)
-    expect(elements[0].data).toMatchObject({ id: '1', label: 'Anna Ivanova' })
-    expect(elements[1].data).toMatchObject({ id: '2', label: 'Boris Ivanov' })
-    expect(elements[2].data).toMatchObject({
-      source: '2',
-      target: '1',
-      type: 'parent',
-      relationshipId: 10,
-      label: 'Родитель',
+  it('exposes relationship type labels used by RelationshipModal', () => {
+    expect(RELATIONSHIP_LABELS).toEqual({
+      parent: 'Родитель',
+      child: 'Ребёнок',
+      spouse: 'Супруг(а)',
+      sibling: 'Брат/Сестра',
     })
   })
 
-  it('invokes onNodeClick with the tapped node id', () => {
-    const onNodeClick = vi.fn()
-    render(
-      <FamilyTreeGraph
-        persons={persons}
-        relationships={relationships}
-        onNodeClick={onNodeClick}
-        onEdgeClick={vi.fn()}
-      />,
-    )
+  it('renders a card for every person with name and lifespan', () => {
+    renderGraph()
 
-    tapHandlers['tap:node']({ target: { id: () => '2' } })
-
-    expect(onNodeClick).toHaveBeenCalledWith('2')
+    expect(screen.getByText('Анна')).toBeInTheDocument()
+    expect(screen.getByText('Иванова')).toBeInTheDocument()
+    expect(screen.getByText('1950')).toBeInTheDocument()
+    // жив(а) — второй год не показываем, только тире "— наст."
+    expect(screen.getByText('— наст.')).toBeInTheDocument()
+    // Борис умер в 2010 — показываем год смерти
+    expect(screen.getByText('— 2010')).toBeInTheDocument()
   })
 
-  it('invokes onEdgeClick with the relationship id', () => {
-    const onEdgeClick = vi.fn()
-    render(
-      <FamilyTreeGraph
-        persons={persons}
-        relationships={relationships}
-        onNodeClick={vi.fn()}
-        onEdgeClick={onEdgeClick}
-      />,
+  it('calls onSelectMember with the person id as a string when a card is clicked', async () => {
+    const onSelectMember = vi.fn()
+    const user = userEvent.setup()
+    renderGraph({ onSelectMember })
+
+    await user.click(screen.getByText('Анна'))
+
+    expect(onSelectMember).toHaveBeenCalledWith('1')
+  })
+
+  it('opens the add-member modal and submits new person data with the chosen relation', async () => {
+    const onAddMember = vi.fn()
+    const user = userEvent.setup()
+    renderGraph({ onAddMember, selectedId: 1 })
+
+    await user.click(screen.getByRole('button', { name: /добавить родственника/i }))
+    await user.type(screen.getByLabelText(/фамилия/i), 'Петров')
+    await user.type(screen.getByLabelText(/^имя/i), 'Пётр')
+    await user.click(screen.getByRole('button', { name: /внедрить в древо/i }))
+
+    expect(onAddMember).toHaveBeenCalledWith(
+      expect.objectContaining({ first_name: 'Пётр', last_name: 'Петров' }),
+      '1',
+      'CHILD',
     )
-
-    tapHandlers['tap:edge']({ target: { data: () => 10 } })
-
-    expect(onEdgeClick).toHaveBeenCalledWith(10)
   })
 })

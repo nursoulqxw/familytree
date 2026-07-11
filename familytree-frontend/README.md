@@ -1,16 +1,58 @@
-# React + Vite
+# Родовое древо — фронтенд
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+SPA на **React 19 + Vite + Tailwind CSS v4**, общается с Django-бэкендом (`../familytree-backend`) через REST API.
+Дизайн (палитра, шрифты, layout) сознательно скопирован с референса `родовое-древо.zip` (прототип Google AI Studio).
 
-Currently, two official plugins are available:
+## Запуск
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Бэкенд должен быть поднят на `http://localhost:8000` (см. `../familytree-backend/SETUP_LOCAL.md`).
 
-## React Compiler
+```bash
+npm install
+npm run dev
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Фронт — на `http://localhost:3000`. `/api/*` и `/media/*` проксируются на бэкенд (см. `vite.config.js`), поэтому
+CORS не задействован.
 
-## Expanding the Oxlint configuration
+```bash
+npm run test    # vitest
+npm run lint    # oxlint
+npm run build   # production-сборка
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Дизайн-система
+
+- Палитра `olive`/`cream`/`ink` и шрифты (`Libre Baskerville` для заголовков, `Inter` для текста) заданы в
+  `src/index.css` через Tailwind `@theme`.
+- Иконки — [lucide-react].
+- Все компоненты стилизованы Tailwind-утилитами напрямую (отдельного `App.css` больше нет).
+
+## Структура
+
+- `src/api/` — HTTP-клиент (`client.js`, axios + JWT из zustand-стора) и запросы по доменам: `auth`, `trees`,
+  `persons`, `relationships`, `lifeEvents`, `media`.
+- `src/store/authStore.js` — zustand-стор авторизации (токены в localStorage).
+- `src/components/FamilyTreeGraph.jsx` — граф родословной: свой SVG/HTML-канвас с drag&drop, зумом и панорамированием
+  (без Cytoscape), иерархическая раскладка по поколениям, брачные мостики, добавление родственника прямо из графа.
+- `src/components/MemberProfile.jsx` — боковая панель профиля персоны: биография, хроника жизни (life-events),
+  архив медиа. Открывается кликом по узлу графа.
+- `src/components/AuditLogView.jsx` / `InviteManager.jsx` — вкладки в сайдбаре страницы дерева: журнал изменений
+  (реальный `GET /trees/{id}/audit_log/`) и приватность/инвайты (реальные `PATCH`/`generate_invite`).
+- `src/pages/TreeDetailPage.jsx` — двухколоночная страница дерева: граф слева, профиль + вкладки справа.
+
+## Что сознательно отличается от референса
+
+Референс — демо-прототип с фейковыми данными и Gemini API. Для реального приложения на нашем бэкенде:
+
+- **Нет реконструкции биографии через Gemini AI** — у нас нет интеграции с Gemini; биография редактируется вручную.
+- **Нет переключателя "тестируемой личности"** — это была фейковая мультиролевая демонстрация; у нас нормальная
+  авторизация, один браузер = один настоящий пользователь.
+- **Нет пола (gender)** — в нашей модели `Person` такого поля нет, поэтому карточки не подсвечиваются по полу и
+  супруги не сортируются "мужчина слева".
+- **Нет счётчика событий/медиа на карточке узла** — потребовал бы отдельного запроса на каждого человека в графе
+  (N+1), поэтому не показываем; полная хроника и медиа доступны в профиле.
+- **Список участников со списком ролей** пока недоступен — на бэкенде нет эндпоинта вида
+  `GET /trees/{id}/members/`. Есть только генерация инвайт-ссылки и приватность дерева.
+- **Автор записи в журнале действий** показывается как «Вы» или «Участник #N» — бэкенд отдаёт только числовой
+  `user_id`, не имя пользователя.

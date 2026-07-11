@@ -3,6 +3,10 @@ import { createRelationship } from '../api/relationships'
 import { RELATIONSHIP_LABELS } from './FamilyTreeGraph'
 import Modal from './Modal'
 
+const selectClass =
+  'w-full text-sm bg-white text-ink rounded-md border border-cream-border px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-olive'
+const labelClass = 'block text-xs font-semibold text-ink/70 mb-1'
+
 export default function RelationshipModal({ treeId, persons, relationships, onClose, onSaved }) {
   const [personFrom, setPersonFrom] = useState('')
   const [personTo, setPersonTo] = useState('')
@@ -51,50 +55,74 @@ export default function RelationshipModal({ treeId, persons, relationships, onCl
 
   return (
     <Modal title="Добавить связь" onClose={onClose}>
-      <form onSubmit={handleSubmit} className="relationship-form">
-        <label htmlFor="rel-from">Человек</label>
-        <select id="rel-from" value={personFrom} onChange={(e) => setPersonFrom(e.target.value)} required>
-          <option value="" disabled>
-            Выберите человека
-          </option>
-          {persons.map((person) => (
-            <option key={person.id} value={person.id}>
-              {person.first_name} {person.last_name}
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        <div>
+          <label htmlFor="rel-from" className={labelClass}>
+            Человек
+          </label>
+          <select id="rel-from" value={personFrom} onChange={(e) => setPersonFrom(e.target.value)} required className={selectClass}>
+            <option value="" disabled>
+              Выберите человека
             </option>
-          ))}
-        </select>
-
-        <label htmlFor="rel-type">Тип связи</label>
-        <select id="rel-type" value={relationshipType} onChange={(e) => setRelationshipType(e.target.value)}>
-          {Object.entries(RELATIONSHIP_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-
-        <label htmlFor="rel-to">относится к</label>
-        <select id="rel-to" value={personTo} onChange={(e) => setPersonTo(e.target.value)} required>
-          <option value="" disabled>
-            Выберите человека
-          </option>
-          {persons
-            .filter((person) => String(person.id) !== personFrom)
-            .map((person) => (
+            {persons.map((person) => (
               <option key={person.id} value={person.id}>
                 {person.first_name} {person.last_name}
               </option>
             ))}
-        </select>
+          </select>
+        </div>
 
-        {error && <p role="alert">{error}</p>}
+        <div>
+          <label htmlFor="rel-type" className={labelClass}>
+            Тип связи
+          </label>
+          <select id="rel-type" value={relationshipType} onChange={(e) => setRelationshipType(e.target.value)} className={selectClass}>
+            {Object.entries(RELATIONSHIP_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <div className="person-form-actions">
-          <button type="submit" disabled={submitting}>
-            Добавить связь
-          </button>
-          <button type="button" onClick={onClose}>
+        <div>
+          <label htmlFor="rel-to" className={labelClass}>
+            относится к
+          </label>
+          <select id="rel-to" value={personTo} onChange={(e) => setPersonTo(e.target.value)} required className={selectClass}>
+            <option value="" disabled>
+              Выберите человека
+            </option>
+            {persons
+              .filter((person) => String(person.id) !== personFrom)
+              .map((person) => (
+                <option key={person.id} value={person.id}>
+                  {person.first_name} {person.last_name}
+                </option>
+              ))}
+          </select>
+        </div>
+
+        {error && (
+          <p role="alert" className="text-rose-900 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-xs">
+            {error}
+          </p>
+        )}
+
+        <div className="flex gap-2 justify-end pt-2 border-t border-cream-border">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-medium text-ink/70 hover:bg-cream-dark rounded-md cursor-pointer bg-transparent border-0 shadow-none"
+          >
             Отмена
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="px-4 py-2 text-xs font-semibold bg-olive text-white rounded-md hover:bg-olive-700 shadow-xs cursor-pointer disabled:opacity-55"
+          >
+            Добавить связь
           </button>
         </div>
       </form>

@@ -1,80 +1,47 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { generateInvite } from '../api/trees'
+import { getTree } from '../api/trees'
+import InviteManager from '../components/InviteManager'
+import Navbar from '../components/Navbar'
 
 export default function SettingsPage() {
   const { treeId } = useParams()
-  const [email, setEmail] = useState('')
-  const [role, setRole] = useState('reader')
-  const [inviteLink, setInviteLink] = useState('')
-  const [copied, setCopied] = useState(false)
+  const [tree, setTree] = useState(null)
   const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
 
-  async function handleInvite(event) {
-    event.preventDefault()
-    setError('')
-    setCopied(false)
-    setSubmitting(true)
-    try {
-      const data = await generateInvite(treeId, { role, email })
-      setInviteLink(`${window.location.origin}/invite/${data.token}`)
-    } catch {
-      setError('Не удалось создать приглашение (только владелец дерева может приглашать)')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  async function handleCopy() {
-    await navigator.clipboard.writeText(inviteLink)
-    setCopied(true)
-  }
+  useEffect(() => {
+    getTree(treeId)
+      .then(setTree)
+      .catch(() => setError('Не удалось загрузить дерево'))
+  }, [treeId])
 
   return (
-    <div className="settings-page">
-      <header>
-        <Link to={`/trees/${treeId}`}>← Назад к дереву</Link>
-        <h1>Настройки дерева</h1>
-      </header>
+    <div className="min-h-screen bg-cream text-ink font-sans flex flex-col">
+      <Navbar />
 
-      <section>
-        <h2>Пригласить участника</h2>
-        <form onSubmit={handleInvite}>
-          <label htmlFor="invite-email">Email (необязательно)</label>
-          <input id="invite-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <main className="flex-1 w-full max-w-2xl mx-auto p-4 md:p-6 lg:p-8">
+        <header className="mb-6">
+          <Link to={`/trees/${treeId}`} className="text-sm text-ink/70 hover:text-olive no-underline">
+            ← Назад к дереву
+          </Link>
+          <h1 className="font-serif font-black text-2xl text-ink mt-2">Настройки дерева</h1>
+        </header>
 
-          <label htmlFor="invite-role">Роль</label>
-          <select id="invite-role" value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="reader">Читатель</option>
-            <option value="editor">Редактор</option>
-            <option value="owner">Владелец</option>
-          </select>
-
-          {error && <p role="alert">{error}</p>}
-
-          <button type="submit" disabled={submitting}>
-            Создать приглашение
-          </button>
-        </form>
-
-        {inviteLink && (
-          <div className="invite-link-box">
-            <input type="text" readOnly value={inviteLink} />
-            <button type="button" onClick={handleCopy}>
-              {copied ? 'Скопировано!' : 'Скопировать ссылку'}
-            </button>
-          </div>
+        {error && (
+          <p role="alert" className="text-rose-900 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-sm mb-4">
+            {error}
+          </p>
         )}
-      </section>
 
-      <section>
-        <h2>Участники</h2>
-        <p className="placeholder-note">
-          Список участников недоступен: на бэкенде пока нет эндпоинта для получения списка членов дерева с их
-          ролями (например, GET /api/trees/{treeId}/members/). Появится, когда такой эндпоинт будет реализован.
+        {tree && (
+          <InviteManager treeId={treeId} privacy={tree.privacy} onPrivacyUpdated={(privacy) => setTree((prev) => ({ ...prev, privacy }))} />
+        )}
+
+        <p className="text-xs italic text-ink/50 mt-6 max-w-md">
+          Список участников со списком ролей пока недоступен: на бэкенде нет эндпоинта для получения членов дерева
+          (например, GET /api/trees/{'{'}id{'}'}/members/). Появится, когда такой эндпоинт будет реализован.
         </p>
-      </section>
+      </main>
     </div>
   )
 }

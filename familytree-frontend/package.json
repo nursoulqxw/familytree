@@ -11,14 +11,13 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.3.2",
     "axios": "^1.18.1",
-    "cytoscape": "^3.34.0",
-    "cytoscape-dagre": "^4.0.0",
-    "dagre": "^0.8.5",
+    "lucide-react": "^1.24.0",
     "react": "^19.2.7",
-    "react-cytoscapejs": "^2.0.0",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",
+    "tailwindcss": "^4.3.2",
     "zustand": "^5.0.14"
   },
   "devDependencies": {

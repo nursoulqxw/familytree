@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { BookOpen } from 'lucide-react'
 import { register } from '../api/auth'
+import BrandMark from '../components/BrandMark'
 import { useAuthStore } from '../store/authStore'
 
 export default function RegisterPage() {
@@ -33,47 +35,95 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="auth-page">
-      <h1>Регистрация</h1>
-      <form onSubmit={handleSubmit}>
-        <label htmlFor="username">Имя пользователя</label>
-        <input
-          id="username"
-          name="username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-        />
+    <div className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-cream">
+      <div className="relative bg-olive text-white p-10 md:p-14 flex flex-col justify-between overflow-hidden">
+        <div className="flex items-center gap-3 font-serif text-xl font-black relative z-10">
+          <BrandMark size={32} />
+          Родовое древо
+        </div>
+        <p className="font-serif text-3xl md:text-4xl leading-snug max-w-md relative z-10">
+          Начните с <span className="text-olive-100">одного имени</span> — дерево вырастет само, ветвь за ветвью.
+        </p>
+        <p className="text-sm opacity-80 relative z-10">Бесплатно. Приглашайте родных и заполняйте вместе.</p>
+        <div className="absolute -bottom-24 -right-16 w-96 h-96 rounded-full bg-white/5" />
+      </div>
 
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+      <div className="flex items-center justify-center p-8 md:p-12">
+        <div className="w-full max-w-sm">
+          <div className="h-10 w-10 bg-olive text-white rounded-lg flex items-center justify-center shadow-xs mb-5 md:hidden">
+            <BookOpen className="h-5.5 w-5.5" />
+          </div>
+          <h1 className="font-serif font-black text-2xl text-ink mb-1">Создать аккаунт</h1>
+          <p className="text-ink/60 text-sm mb-7">Это займёт меньше минуты</p>
 
-        <label htmlFor="password">Пароль</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="username" className="block text-xs font-semibold text-ink/70 mb-1">
+                Имя пользователя
+              </label>
+              <input
+                id="username"
+                name="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-olive text-ink"
+              />
+            </div>
 
-        {error && <p role="alert">{error}</p>}
+            <div>
+              <label htmlFor="email" className="block text-xs font-semibold text-ink/70 mb-1">
+                Email
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-olive text-ink"
+              />
+            </div>
 
-        <button type="submit" disabled={submitting}>
-          {submitting ? 'Регистрируем…' : 'Зарегистрироваться'}
-        </button>
-      </form>
-      <p>
-        Уже есть аккаунт? <Link to="/login">Войти</Link>
-      </p>
+            <div>
+              <label htmlFor="password" className="block text-xs font-semibold text-ink/70 mb-1">
+                Пароль
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-olive text-ink"
+              />
+            </div>
+
+            {error && (
+              <p role="alert" className="text-rose-900 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-sm">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full px-4 py-2.5 text-sm font-semibold bg-olive text-white rounded-lg hover:bg-olive-700 transition shadow-xs cursor-pointer disabled:opacity-55"
+            >
+              {submitting ? 'Регистрируем…' : 'Зарегистрироваться'}
+            </button>
+          </form>
+
+          <p className="text-sm text-ink/70 mt-6">
+            Уже есть аккаунт?{' '}
+            <Link to="/login" className="font-semibold text-olive hover:underline">
+              Войти
+            </Link>
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
