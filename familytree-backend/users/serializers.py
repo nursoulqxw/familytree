@@ -39,3 +39,8 @@ class RegisterResponseSerializer(TokenResponseSerializer):
     """Форма ответа register() — токены плюс базовые данные созданного пользователя."""
     user_id = serializers.IntegerField()
     username = serializers.CharField()
+
+
+class LogoutSerializer(serializers.Serializer):
+    """Только для документации Swagger — тело запроса POST /api/auth/logout/."""
+    refresh = serializers.CharField()

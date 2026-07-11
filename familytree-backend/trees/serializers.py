@@ -8,7 +8,10 @@ class PersonSerializer(serializers.ModelSerializer):
     (PersonViewSet), и как компактное представление внутри full_tree/ancestors."""
     class Meta:
         model = Person
-        fields = ['id', 'first_name', 'last_name', 'birth_date', 'death_date', 'bio', 'photo', 'extra_data']
+        fields = [
+            'id', 'first_name', 'last_name', 'patronymic',
+            'birth_date', 'death_date', 'birth_place', 'bio', 'photo', 'extra_data',
+        ]
 
     def validate(self, attrs):
         """Дата смерти не может быть раньше даты рождения (п. 3.1 ТЗ).
@@ -60,17 +63,30 @@ class RelationshipSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class FamilyTreeListSerializer(serializers.ModelSerializer):
+class MembersCountMixin(serializers.Serializer):
+    """Отдаёт число участников дерева. Если queryset уже аннотирован
+    (.annotate(members_count=Count('members', distinct=True)) — см. FamilyTreeViewSet),
+    берёт готовое значение без лишнего запроса; иначе (retrieve одного дерева) —
+    один запрос на этот единственный объект, не N+1."""
+    members_count = serializers.SerializerMethodField()
+
+    def get_members_count(self, obj):
+        if hasattr(obj, 'members_count'):
+            return obj.members_count
+        return obj.members.count()
+
+
+class FamilyTreeListSerializer(MembersCountMixin, serializers.ModelSerializer):
     """Лёгкий сериализатор для списка деревьев — без persons/relationships.
     Полный граф отдаёт отдельный эндпоинт full_tree (лениво, по запросу для одного дерева),
     иначе список из N деревьев стоил бы 2*N лишних SQL-запросов (N+1)."""
     class Meta:
         model = FamilyTree
-        fields = ['id', 'name', 'privacy', 'share_token']
+        fields = ['id', 'name', 'privacy', 'share_token', 'members_count']
         read_only_fields = ['share_token']
 
 
-class FamilyTreeDetailSerializer(serializers.ModelSerializer):
+class FamilyTreeDetailSerializer(MembersCountMixin, serializers.ModelSerializer):
     """Полное представление дерева с вложенными persons/relationships.
     Используется для retrieve/create/update одного конкретного дерева —
     для списка деревьев см. более лёгкий FamilyTreeListSerializer."""
@@ -79,7 +95,7 @@ class FamilyTreeDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FamilyTree
-        fields = ['id', 'name', 'privacy', 'share_token', 'persons', 'relationships']
+        fields = ['id', 'name', 'privacy', 'share_token', 'members_count', 'persons', 'relationships']
         read_only_fields = ['share_token']
 
 

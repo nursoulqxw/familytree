@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:15
@@ -13,6 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devuser -d familytree"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7
@@ -21,5 +24,31 @@ services:
     ports:
       - "6379:6379"
 
+  backend:
+    build: .
+    container_name: ft_backend
+    restart: always
+    # миграции гоняются при каждом старте контейнера — на этапе build ещё нет доступа к БД
+    command: sh -c "python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000"
+    ports:
+      - "8000:8000"
+    environment:
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in familytree-backend/.env}
+      DEBUG: ${DEBUG:-False}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      # значения db-контейнера выше, а не из .env — .env обычно настроен под локальный
+      # Postgres на localhost (см. SETUP_LOCAL.md), а тут бэкенд общается с контейнером db
+      DB_NAME: familytree
+      DB_USER: devuser
+      DB_PASSWORD: devpassword
+      DB_HOST: db
+      DB_PORT: 5432
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   postgres_data:
+  media_data:

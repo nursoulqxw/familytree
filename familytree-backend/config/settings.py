@@ -31,7 +31,10 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG') == 'True'
 
-ALLOWED_HOSTS = []
+# Список через запятую в .env (ALLOWED_HOSTS=example.com,www.example.com); дефолт покрывает
+# только локальную разработку — раньше здесь был захардкоженный [], что ломало бы любой
+# прод-деплой (Django требует непустой ALLOWED_HOSTS при DEBUG=False).
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -77,6 +80,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Сторонние
     'rest_framework',
+    'rest_framework_simplejwt.token_blacklist',
     'drf_spectacular',
     'corsheaders',
 
@@ -180,8 +184,46 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 AUTH_USER_MODEL = 'users.CustomUser'
+
+# Логирование в stdout (console) — годится и для локального запуска, и для контейнера
+# (docker-compose/любой оркестратор сам собирает stdout, файлового хендлера не нужно).
+# Раньше логирование не настраивалось вообще, был только Django-дефолт.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{asctime} {levelname} {name} — {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'django.request': {
+            # 5xx/необработанные исключения на запросах — это должно быть видно всегда
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+}

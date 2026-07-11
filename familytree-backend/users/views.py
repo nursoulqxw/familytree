@@ -1,13 +1,19 @@
 # users/views.py
-"""Аутентификация: регистрация нового пользователя и логин по username/password.
-Обе вьюхи — простые function-based views (@api_view), доступны без авторизации
-(AllowAny), выдают пару JWT-токенов (access/refresh) через simplejwt."""
+"""Аутентификация: регистрация, логин и логаут по username/password.
+Регистрация и логин — простые function-based views (@api_view), доступны без
+авторизации (AllowAny), выдают пару JWT-токенов (access/refresh) через simplejwt.
+Логаут требует валидный access-токен и отзывает переданный refresh-токен
+(добавляет его в blacklist — rest_framework_simplejwt.token_blacklist)."""
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from drf_spectacular.utils import extend_schema
-from .serializers import UserRegistrationSerializer, LoginSerializer, RegisterResponseSerializer, TokenResponseSerializer
+from .serializers import (
+    UserRegistrationSerializer, LoginSerializer, RegisterResponseSerializer, TokenResponseSerializer,
+    LogoutSerializer,
+)
 
 
 @extend_schema(request=UserRegistrationSerializer, responses=RegisterResponseSerializer)
@@ -50,3 +56,21 @@ def login(request):
             'refresh': str(refresh),
         })
     return Response({'error': 'Invalid credentials'}, status=401)
+
+
+@extend_schema(request=LogoutSerializer, responses=None)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout(request):
+    """Отзывает refresh-токен (добавляет в blacklist), чтобы им нельзя было
+    получить новый access после выхода. Сам access-токен, которым выполнен
+    этот запрос, естественным образом истечёт по ACCESS_TOKEN_LIFETIME —
+    simplejwt не поддерживает мгновенный отзыв access-токенов без Redis-кеша."""
+    token = request.data.get('refresh')
+    if not token:
+        return Response({'error': 'Поле refresh обязательно'}, status=400)
+    try:
+        RefreshToken(token).blacklist()
+    except TokenError:
+        return Response({'error': 'Невалидный или уже отозванный refresh-токен'}, status=400)
+    return Response(status=204)

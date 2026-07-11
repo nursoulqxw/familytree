@@ -20,8 +20,10 @@ const labelClass = 'block text-xs font-semibold text-ink/70 mb-1'
 export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete, submitting }) {
   const [firstName, setFirstName] = useState(initialPerson?.first_name ?? '')
   const [lastName, setLastName] = useState(initialPerson?.last_name ?? '')
+  const [patronymic, setPatronymic] = useState(initialPerson?.patronymic ?? '')
   const [birthDate, setBirthDate] = useState(initialPerson?.birth_date ?? '')
   const [deathDate, setDeathDate] = useState(initialPerson?.death_date ?? '')
+  const [birthPlace, setBirthPlace] = useState(initialPerson?.birth_place ?? '')
   const [bio, setBio] = useState(initialPerson?.bio ?? '')
   const [photoFile, setPhotoFile] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(initialPerson?.photo ?? null)
@@ -65,8 +67,10 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
     const data = {
       first_name: firstName.trim(),
       last_name: lastName.trim(),
+      patronymic: patronymic.trim(),
       birth_date: birthDate || null,
       death_date: deathDate || null,
+      birth_place: birthPlace.trim(),
       bio,
       extra_data: rowsToExtraData(extraRows),
     }
@@ -106,6 +110,18 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
         </div>
       </div>
 
+      <div>
+        <label htmlFor="person-patronymic" className={labelClass}>
+          Отчество
+        </label>
+        <input
+          id="person-patronymic"
+          value={patronymic}
+          onChange={(e) => setPatronymic(e.target.value)}
+          className={inputClass}
+        />
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="person-birth-date" className={labelClass}>
@@ -131,6 +147,18 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
             className={inputClass}
           />
         </div>
+      </div>
+
+      <div>
+        <label htmlFor="person-birth-place" className={labelClass}>
+          Место рождения
+        </label>
+        <input
+          id="person-birth-place"
+          value={birthPlace}
+          onChange={(e) => setBirthPlace(e.target.value)}
+          className={inputClass}
+        />
       </div>
 
       <div>

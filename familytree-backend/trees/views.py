@@ -4,16 +4,18 @@
 (DEFAULT_AUTHENTICATION_CLASSES в config/settings.py) и системой ролей TreeMember.
 """
 
-from rest_framework import viewsets, status
+from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.db import connection
+from django.db.models import Count
 from .models import FamilyTree, Person, Relationship, AuditLog, TreeMember, LifeEvent, Notification, Media
 from .serializers import *
 from .models import Invitation
+from .permissions import IsTreeMember, IsTreeOwner, require_permission
 import uuid
 from datetime import timedelta
 from django.utils import timezone
@@ -163,7 +165,14 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
         if getattr(self, 'swagger_fake_view', False):
             # во время генерации OpenAPI-схемы request.user не настоящий пользователь
             return FamilyTree.objects.none()
-        return FamilyTree.objects.filter(members__user=self.request.user).distinct()
+        # id__in вместо filter(members__user=...), чтобы не столкнуть этот join с тем,
+        # что использует annotate(Count('members')) ниже — иначе members_count считал бы
+        # только "мою" строку членства, а не всех участников дерева
+        my_tree_ids = TreeMember.objects.filter(user=self.request.user).values('tree_id')
+        return (
+            FamilyTree.objects.filter(id__in=my_tree_ids)
+            .annotate(members_count=Count('members', distinct=True))
+        )
 
     def _get_role(self, tree):
         """Короткая обёртка над get_tree_role для текущего пользователя запроса."""
@@ -191,8 +200,7 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         """Изменение настроек дерева (name/privacy) — доступно только владельцу."""
         tree = self.get_object()
-        if self._get_role(tree) != 'owner':
-            return Response({'error': 'Только владелец может изменять настройки дерева'}, status=403)
+        require_permission(IsTreeOwner(), request, self, tree)
         return super().update(request, *args, **kwargs)
 
     def perform_update(self, serializer):
@@ -204,8 +212,7 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         """Удаление дерева (каскадно тянет persons/relationships/логи и т.д.) — только владелец."""
         tree = self.get_object()
-        if self._get_role(tree) != 'owner':
-            return Response({'error': 'Только владелец может удалить дерево'}, status=403)
+        require_permission(IsTreeOwner(), request, self, tree)
         return super().destroy(request, *args, **kwargs)
 
     @action(detail=False, methods=['get'])
@@ -213,7 +220,11 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
         """Каталог открытых (privacy=public) деревьев — виден любому авторизованному
         пользователю независимо от членства. link-деревья сюда не попадают: по смыслу
         они доступны только по прямой ссылке с токеном, а не через общий список."""
-        trees = FamilyTree.objects.filter(privacy='public').order_by('-created_at')
+        trees = (
+            FamilyTree.objects.filter(privacy='public')
+            .annotate(members_count=Count('members', distinct=True))
+            .order_by('-created_at')
+        )
         return Response(FamilyTreeListSerializer(trees, many=True).data)
 
     @action(detail=True, methods=['get'])
@@ -241,8 +252,7 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
         видят только реальные участники (TreeMember), даже если дерево публичное.
         """
         tree = self.get_object()
-        if self._get_role(tree) is None:
-            raise PermissionDenied('История изменений доступна только участникам дерева')
+        require_permission(IsTreeMember(), request, self, tree)
         logs = tree.audit_logs.all().order_by('-created_at')[:100]
         return Response(AuditLogSerializer(logs, many=True).data)
 
@@ -254,9 +264,7 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
         accept_invite; если передан email — дублируется письмом (send_mail).
         """
         tree = self.get_object()
-
-        if self._get_role(tree) != 'owner':
-            return Response({'error': 'Только владелец может приглашать участников'}, status=403)
+        require_permission(IsTreeOwner(), request, self, tree)
 
         token = str(uuid.uuid4())
         role = request.data.get('role', 'reader')
@@ -320,8 +328,7 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
         """Список участников дерева с ролями — видно только реальным участникам
         (в отличие от full_tree, приватность public/link сюда доступа не даёт)."""
         tree = self.get_object()
-        if self._get_role(tree) is None:
-            raise PermissionDenied('Список участников доступен только участникам дерева')
+        require_permission(IsTreeMember(), request, self, tree)
         members = tree.members.select_related('user').order_by('created_at')
         return Response(TreeMemberSerializer(members, many=True).data)
 
@@ -330,8 +337,7 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
         """Убирает участника из дерева — только владелец; владелец не может убрать сам себя
         (иначе дерево осталось бы без единого владельца)."""
         tree = self.get_object()
-        if self._get_role(tree) != 'owner':
-            return Response({'error': 'Только владелец может убирать участников'}, status=403)
+        require_permission(IsTreeOwner(), request, self, tree)
         if str(request.user.id) == str(user_id):
             return Response({'error': 'Нельзя убрать самого себя из дерева'}, status=400)
 

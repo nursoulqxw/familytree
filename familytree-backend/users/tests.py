@@ -77,6 +77,47 @@ class TokenRefreshTests(TestCase):
         self.assertEqual(resp.status_code, 401)
 
 
+class LogoutTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='logouttest', password='S3curePass!23')
+
+    def _authed_client(self):
+        client = APIClient()
+        refresh = RefreshToken.for_user(self.user)
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        return client, refresh
+
+    def test_logout_blacklists_refresh_token(self):
+        client, refresh = self._authed_client()
+        resp = client.post('/api/auth/logout/', {'refresh': str(refresh)})
+        self.assertEqual(resp.status_code, 204)
+
+        # тот же refresh больше не годится для получения нового access
+        resp2 = APIClient().post('/api/auth/refresh/', {'refresh': str(refresh)})
+        self.assertEqual(resp2.status_code, 401)
+
+    def test_logout_requires_authentication(self):
+        resp = APIClient().post('/api/auth/logout/', {'refresh': 'whatever'})
+        self.assertEqual(resp.status_code, 401)
+
+    def test_logout_without_refresh_field_fails(self):
+        client, _ = self._authed_client()
+        resp = client.post('/api/auth/logout/', {})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_logout_with_garbage_refresh_fails(self):
+        client, _ = self._authed_client()
+        resp = client.post('/api/auth/logout/', {'refresh': 'not-a-real-token'})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_logout_twice_with_same_token_fails_second_time(self):
+        client, refresh = self._authed_client()
+        first = client.post('/api/auth/logout/', {'refresh': str(refresh)})
+        self.assertEqual(first.status_code, 204)
+        second = client.post('/api/auth/logout/', {'refresh': str(refresh)})
+        self.assertEqual(second.status_code, 400)
+
+
 class AuthenticatedAccessTests(TestCase):
     """Проверяет, что защищённые эндпоинты реально требуют access-токен."""
 

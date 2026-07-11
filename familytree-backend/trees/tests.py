@@ -540,3 +540,80 @@ class AuditLogCoverageTests(TestCase):
         self.assertEqual(resp.status_code, 204)
 
         self.assertEqual(self._log_actions('Relationship'), ['create', 'update', 'delete'])
+
+
+class TreeMembersCountTests(TestCase):
+    """members_count на списке и retrieve дерева, без N+1 (trees/permissions.py + serializers)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username='mc_owner', password='testpass123')
+        self.editor = User.objects.create_user(username='mc_editor', password='testpass123')
+        self.tree = FamilyTree.objects.create(owner=self.owner, name='MC Tree')
+        TreeMember.objects.create(tree=self.tree, user=self.owner, role='owner')
+        TreeMember.objects.create(tree=self.tree, user=self.editor, role='editor')
+        self.client = make_client(self.owner)
+
+    def test_members_count_on_list_and_retrieve(self):
+        resp = self.client.get('/api/trees/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()[0]['members_count'], 2)
+
+        resp2 = self.client.get(f'/api/trees/{self.tree.id}/')
+        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(resp2.json()['members_count'], 2)
+
+    def test_members_count_list_query_count_is_flat(self):
+        with CaptureQueriesContext(connection) as ctx_small:
+            resp = self.client.get('/api/trees/')
+        self.assertEqual(resp.status_code, 200)
+
+        for i in range(5):
+            u = User.objects.create_user(username=f'mc_extra{i}', password='testpass123')
+            TreeMember.objects.create(tree=self.tree, user=u, role='reader')
+
+        with CaptureQueriesContext(connection) as ctx_large:
+            resp2 = self.client.get('/api/trees/')
+        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(resp2.json()[0]['members_count'], 7)
+
+        self.assertEqual(len(ctx_small.captured_queries), len(ctx_large.captured_queries))
+
+
+class TreeOwnerPermissionTests(TestCase):
+    """update/destroy/generate_invite теперь идут через IsTreeOwner (trees/permissions.py)
+    вместо ручных if role != 'owner' — проверяем, что поведение не изменилось."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username='perm_owner', password='testpass123')
+        self.editor = User.objects.create_user(username='perm_editor', password='testpass123')
+        self.tree = FamilyTree.objects.create(owner=self.owner, name='Perm Tree')
+        TreeMember.objects.create(tree=self.tree, user=self.owner, role='owner')
+        TreeMember.objects.create(tree=self.tree, user=self.editor, role='editor')
+        self.owner_client = make_client(self.owner)
+        self.editor_client = make_client(self.editor)
+
+    def test_editor_cannot_update_tree_settings(self):
+        resp = self.editor_client.patch(f'/api/trees/{self.tree.id}/', {'name': 'Hacked'}, format='json')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_owner_can_update_tree_settings(self):
+        resp = self.owner_client.patch(f'/api/trees/{self.tree.id}/', {'name': 'Renamed'}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+
+    def test_editor_cannot_generate_invite(self):
+        resp = self.editor_client.post(f'/api/trees/{self.tree.id}/generate_invite/')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_owner_can_generate_invite(self):
+        resp = self.owner_client.post(f'/api/trees/{self.tree.id}/generate_invite/')
+        self.assertEqual(resp.status_code, 200, resp.content)
+
+    def test_editor_cannot_delete_tree(self):
+        resp = self.editor_client.delete(f'/api/trees/{self.tree.id}/')
+        self.assertEqual(resp.status_code, 403)
+        self.assertTrue(FamilyTree.objects.filter(id=self.tree.id).exists())
+
+    def test_owner_can_delete_tree(self):
+        resp = self.owner_client.delete(f'/api/trees/{self.tree.id}/')
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(FamilyTree.objects.filter(id=self.tree.id).exists())
