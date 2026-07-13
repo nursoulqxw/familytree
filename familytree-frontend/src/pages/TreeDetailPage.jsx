@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { Activity, RefreshCw, Share2 } from 'lucide-react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Activity, Clock, RefreshCw, Share2 } from 'lucide-react'
 import { createPerson } from '../api/persons'
 import { createRelationship, deleteRelationship } from '../api/relationships'
 import { getTree } from '../api/trees'
@@ -32,6 +32,7 @@ function relationshipArgsFor(relType, newPersonId, connectToId) {
 
 export default function TreeDetailPage() {
   const { treeId } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [tree, setTree] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -59,6 +60,15 @@ export default function TreeDetailPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  // переход по точке хронологии (/trees/:id?person=42) — выбрать персону и убрать параметр из URL
+  useEffect(() => {
+    const personParam = searchParams.get('person')
+    if (personParam && tree) {
+      setSelectedId(Number(personParam))
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, tree, setSearchParams])
 
   const persons = tree?.persons ?? []
   const relationships = tree?.relationships ?? []
@@ -119,6 +129,12 @@ export default function TreeDetailPage() {
           className="text-sm text-ink/70 hover:text-olive no-underline px-3 py-1.5 rounded-lg hover:bg-cream-dark"
         >
           ← Мои деревья
+        </Link>
+        <Link
+          to={`/trees/${treeId}/timeline`}
+          className="text-sm text-ink/70 hover:text-olive no-underline px-3 py-1.5 rounded-lg hover:bg-cream-dark flex items-center gap-1.5"
+        >
+          <Clock className="h-3.5 w-3.5" /> Хронология
         </Link>
       </Navbar>
 

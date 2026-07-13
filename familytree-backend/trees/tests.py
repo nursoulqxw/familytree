@@ -10,7 +10,7 @@ from django.db import connection
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import FamilyTree, TreeMember, Person, Relationship, Notification, Media, AuditLog
+from .models import FamilyTree, TreeMember, Person, Relationship, Notification, Media, AuditLog, LifeEvent
 
 User = get_user_model()
 
@@ -617,3 +617,83 @@ class TreeOwnerPermissionTests(TestCase):
         resp = self.owner_client.delete(f'/api/trees/{self.tree.id}/')
         self.assertEqual(resp.status_code, 204)
         self.assertFalse(FamilyTree.objects.filter(id=self.tree.id).exists())
+
+
+class TimelineTests(TestCase):
+    """GET /api/trees/{id}/timeline/ — рождения, смерти и жизненные события одним списком."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username='tl_owner', password='testpass123')
+        self.tree = FamilyTree.objects.create(owner=self.owner, name='Timeline Tree')
+        TreeMember.objects.create(tree=self.tree, user=self.owner, role='owner')
+        self.client = make_client(self.owner)
+
+        # GGP(1900) -> GP(1930) -> Parent(1960) -> Self(1990), линейная цепочка предков
+        self.ggp = Person.objects.create(tree=self.tree, first_name='GGP', last_name='X', birth_date='1900-01-01', death_date='1970-01-01')
+        self.gp = Person.objects.create(tree=self.tree, first_name='GP', last_name='X', birth_date='1930-01-01')
+        self.parent = Person.objects.create(tree=self.tree, first_name='Parent', last_name='X', birth_date='1960-01-01')
+        self.self_person = Person.objects.create(tree=self.tree, first_name='Self', last_name='X', birth_date='1990-01-01')
+        # без дат рождения/смерти — не должен попасть в хронологию вовсе
+        self.no_dates = Person.objects.create(tree=self.tree, first_name='NoDates', last_name='X')
+
+        for child, parent in [(self.gp, self.ggp), (self.parent, self.gp), (self.self_person, self.parent)]:
+            Relationship.objects.create(tree=self.tree, person_from=parent, person_to=child, relationship_type='parent')
+
+        # родственник в стороне (не предок Self) — должен попасть в "вся семья", но не в "предки Self"
+        self.sibling_of_parent = Person.objects.create(tree=self.tree, first_name='Aunt', last_name='X', birth_date='1962-01-01')
+        Relationship.objects.create(tree=self.tree, person_from=self.gp, person_to=self.sibling_of_parent, relationship_type='parent')
+
+        LifeEvent.objects.create(person=self.self_person, title='Окончил школу', event_date='2008-06-01')
+        LifeEvent.objects.create(person=self.self_person, title='Без даты', event_date=None)  # не должен попасть
+
+    def test_whole_family_timeline_sorted_by_date(self):
+        resp = self.client.get(f'/api/trees/{self.tree.id}/timeline/')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+
+        dates = [item['date'] for item in data]
+        self.assertEqual(dates, sorted(dates))
+
+        # birth+death для GGP (2), birth для gp/parent/self/aunt (4), + 1 life event = 7;
+        # NoDates без дат вообще не попадает в хронологию
+        self.assertEqual(len(data), 7)
+        self.assertTrue(any(item['type'] == 'death' and item['person']['id'] == self.ggp.id for item in data))
+        self.assertTrue(any(item['type'] == 'life_event' and item['title'] == 'Окончил школу' for item in data))
+
+    def test_ancestors_of_filters_to_direct_line_only(self):
+        resp = self.client.get(f'/api/trees/{self.tree.id}/timeline/?person_id={self.self_person.id}')
+        self.assertEqual(resp.status_code, 200)
+        person_ids = {item['person']['id'] for item in resp.json()}
+
+        self.assertEqual(person_ids, {self.self_person.id, self.parent.id, self.gp.id, self.ggp.id})
+        self.assertNotIn(self.sibling_of_parent.id, person_ids)
+        self.assertNotIn(self.no_dates.id, person_ids)
+
+    def test_zhety_ata_depth_limits_generations(self):
+        # depth=2 от Self: сам Self (0) + Parent (1) + GP (2), прадед GGP (3) уже не входит
+        resp = self.client.get(f'/api/trees/{self.tree.id}/timeline/?person_id={self.self_person.id}&depth=2')
+        self.assertEqual(resp.status_code, 200)
+        person_ids = {item['person']['id'] for item in resp.json()}
+
+        self.assertEqual(person_ids, {self.self_person.id, self.parent.id, self.gp.id})
+        self.assertNotIn(self.ggp.id, person_ids)
+
+    def test_timeline_query_count_is_flat(self):
+        with CaptureQueriesContext(connection) as ctx_small:
+            resp = self.client.get(f'/api/trees/{self.tree.id}/timeline/')
+        self.assertEqual(resp.status_code, 200)
+
+        for i in range(10):
+            p = Person.objects.create(tree=self.tree, first_name=f'Extra{i}', last_name='X', birth_date='2000-01-01')
+            LifeEvent.objects.create(person=p, title=f'Event {i}', event_date='2010-01-01')
+
+        with CaptureQueriesContext(connection) as ctx_large:
+            resp2 = self.client.get(f'/api/trees/{self.tree.id}/timeline/')
+        self.assertEqual(resp2.status_code, 200)
+
+        self.assertEqual(len(ctx_small.captured_queries), len(ctx_large.captured_queries))
+
+    def test_stranger_has_no_access(self):
+        stranger = User.objects.create_user(username='tl_stranger', password='testpass123')
+        resp = make_client(stranger).get(f'/api/trees/{self.tree.id}/timeline/')
+        self.assertEqual(resp.status_code, 403)

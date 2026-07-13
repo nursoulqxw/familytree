@@ -37,6 +37,14 @@ export function fetchAuditLog(treeId) {
   return client.get(`/trees/${treeId}/audit_log/`).then((res) => res.data)
 }
 
+/** personId — показать только прямых предков этого человека; depth — сколько поколений (7 = «Жеті ата»). */
+export function fetchTimeline(treeId, { personId, depth } = {}) {
+  const params = {}
+  if (personId) params.person_id = personId
+  if (depth) params.depth = depth
+  return client.get(`/trees/${treeId}/timeline/`, { params }).then((res) => res.data)
+}
+
 export function listMembers(treeId) {
   return client.get(`/trees/${treeId}/members/`).then((res) => res.data)
 }

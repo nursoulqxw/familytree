@@ -245,6 +245,65 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
         })
 
     @action(detail=True, methods=['get'])
+    def timeline(self, request, pk=None):
+        """Хронология дерева: рождения, смерти и жизненные события (LifeEvent), одним
+        списком по дате. Без параметров — вся семья; с ?person_id=&depth= — только
+        прямые предки указанного человека (глубина в поколениях, для «Жеті ата» — 7).
+
+        Доступ — как у full_tree (учитывает privacy дерева через get_object()); тип
+        события/период/живые-умершие/наличие фото фильтруются уже на фронтенде —
+        для дерева разумного размера (десятки-сотни персон) это дешевле лишнего
+        параметра запроса и лишнего похода на бэкенд при каждом переключении фильтра.
+        """
+        tree = self.get_object()
+
+        person_id = request.query_params.get('person_id')
+        if person_id:
+            anchor = get_object_or_404(Person, id=person_id, tree=tree)
+            chain = _fetch_ancestry_chain(tree, anchor, 'ancestors')
+            depth_param = request.query_params.get('depth')
+            if depth_param:
+                try:
+                    max_depth = int(depth_param)
+                    chain = [(pid, d) for pid, d in chain if d <= max_depth]
+                except ValueError:
+                    pass
+            person_ids = {anchor.id, *(pid for pid, _ in chain)}
+            persons = Person.objects.filter(id__in=person_ids, tree=tree)
+        else:
+            persons = Person.objects.filter(tree=tree)
+
+        def person_brief(p):
+            return {
+                'id': p.id,
+                'first_name': p.first_name,
+                'last_name': p.last_name,
+                'patronymic': p.patronymic,
+                'photo': p.photo.url if p.photo else None,
+            }
+
+        entries = []
+        for p in persons:
+            if p.birth_date:
+                entries.append({'id': f'birth-{p.id}', 'type': 'birth', 'date': p.birth_date, 'person': person_brief(p)})
+            if p.death_date:
+                entries.append({'id': f'death-{p.id}', 'type': 'death', 'date': p.death_date, 'person': person_brief(p)})
+
+        events = LifeEvent.objects.filter(person__in=persons, event_date__isnull=False).select_related('person')
+        for e in events:
+            entries.append({
+                'id': f'event-{e.id}',
+                'type': 'life_event',
+                'date': e.event_date,
+                'person': person_brief(e.person),
+                'title': e.title,
+                'description': e.description,
+            })
+
+        entries.sort(key=lambda item: item['date'])
+        return Response(entries)
+
+    @action(detail=True, methods=['get'])
     def audit_log(self, request, pk=None):
         """Последние 100 записей журнала изменений дерева.
 
