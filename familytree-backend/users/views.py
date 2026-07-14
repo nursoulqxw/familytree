@@ -4,6 +4,8 @@
 авторизации (AllowAny), выдают пару JWT-токенов (access/refresh) через simplejwt.
 Логаут требует валидный access-токен и отзывает переданный refresh-токен
 (добавляет его в blacklist — rest_framework_simplejwt.token_blacklist)."""
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -12,7 +14,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from drf_spectacular.utils import extend_schema
 from .serializers import (
     UserRegistrationSerializer, LoginSerializer, RegisterResponseSerializer, TokenResponseSerializer,
-    LogoutSerializer,
+    LogoutSerializer, UserProfileSerializer, ChangePasswordSerializer,
 )
 
 
@@ -73,4 +75,44 @@ def logout(request):
         RefreshToken(token).blacklist()
     except TokenError:
         return Response({'error': 'Невалидный или уже отозванный refresh-токен'}, status=400)
+    return Response(status=204)
+
+
+@extend_schema(responses=UserProfileSerializer)
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def profile(request):
+    """Профиль текущего пользователя. GET — просмотр; PATCH — редактирование
+    (только first_name/last_name — username и email через этот эндпоинт не меняются)."""
+    if request.method == 'GET':
+        return Response(UserProfileSerializer(request.user).data)
+
+    serializer = UserProfileSerializer(request.user, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=400)
+
+
+@extend_schema(request=ChangePasswordSerializer, responses=None)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """Смена пароля текущего пользователя — требует правильный текущий пароль
+    и проверяет новый через стандартные AUTH_PASSWORD_VALIDATORS."""
+    serializer = ChangePasswordSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+
+    user = request.user
+    if not user.check_password(serializer.validated_data['old_password']):
+        return Response({'old_password': ['Неверный текущий пароль']}, status=400)
+
+    try:
+        validate_password(serializer.validated_data['new_password'], user=user)
+    except DjangoValidationError as exc:
+        return Response({'new_password': exc.messages}, status=400)
+
+    user.set_password(serializer.validated_data['new_password'])
+    user.save(update_fields=['password'])
     return Response(status=204)

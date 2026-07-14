@@ -132,3 +132,80 @@ class AuthenticatedAccessTests(TestCase):
         client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
         resp = client.get('/api/trees/')
         self.assertEqual(resp.status_code, 200)
+
+
+class ProfileTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='profiletest', password='S3curePass!23', email='old@example.com', first_name='Old',
+        )
+        self.client = APIClient()
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+
+    def test_get_profile_requires_authentication(self):
+        resp = APIClient().get('/api/auth/me/')
+        self.assertEqual(resp.status_code, 401)
+
+    def test_get_profile_returns_current_user(self):
+        resp = self.client.get('/api/auth/me/')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['username'], 'profiletest')
+        self.assertEqual(data['email'], 'old@example.com')
+
+    def test_patch_updates_first_and_last_name(self):
+        resp = self.client.patch('/api/auth/me/', {'first_name': 'New', 'last_name': 'Name'}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, 'New')
+        self.assertEqual(self.user.last_name, 'Name')
+
+    def test_patch_cannot_change_username_or_email(self):
+        resp = self.client.patch(
+            '/api/auth/me/', {'username': 'hijacked', 'email': 'new@example.com'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, 'profiletest')
+        self.assertEqual(self.user.email, 'old@example.com')
+
+
+class ChangePasswordTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='pwdtest', password='OldPass123!')
+        self.client = APIClient()
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+
+    def test_change_password_succeeds_with_correct_old_password(self):
+        resp = self.client.post('/api/auth/change-password/', {
+            'old_password': 'OldPass123!', 'new_password': 'BrandNewPass456!',
+        })
+        self.assertEqual(resp.status_code, 204)
+
+        login_resp = APIClient().post('/api/auth/login/', {'username': 'pwdtest', 'password': 'BrandNewPass456!'})
+        self.assertEqual(login_resp.status_code, 200)
+
+    def test_change_password_fails_with_wrong_old_password(self):
+        resp = self.client.post('/api/auth/change-password/', {
+            'old_password': 'WrongPass', 'new_password': 'BrandNewPass456!',
+        })
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('old_password', resp.json())
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('OldPass123!'))
+
+    def test_change_password_rejects_weak_new_password(self):
+        resp = self.client.post('/api/auth/change-password/', {
+            'old_password': 'OldPass123!', 'new_password': '123',
+        })
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('new_password', resp.json())
+
+    def test_change_password_requires_authentication(self):
+        resp = APIClient().post('/api/auth/change-password/', {
+            'old_password': 'OldPass123!', 'new_password': 'BrandNewPass456!',
+        })
+        self.assertEqual(resp.status_code, 401)

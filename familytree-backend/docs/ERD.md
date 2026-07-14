@@ -1,6 +1,6 @@
 # ER-диаграмма базы данных (FamilyTree backend)
 
-Сгенерировано по фактическим моделям Django (`users/models.py`, `trees/models.py`, состояние на 2026-07-02, после миграций `trees.0002_treemember`, `trees.0003_person_extra_data_lifeevent`, `trees.0004_familytree_share_token`, `trees.0005_notification` и `trees.0006_media`).
+Сгенерировано по фактическим моделям Django (`users/models.py`, `trees/models.py`, состояние на 2026-07-14, после миграций по `trees.0007_person_gender` включительно).
 Открывается как обычный Mermaid-диаграмма — GitHub, GitLab и VS Code (расширение Markdown Preview Mermaid) рендерят её автоматически.
 
 ```mermaid
@@ -91,6 +91,7 @@ erDiagram
         string first_name
         string last_name
         string patronymic
+        string gender "M | F, опционально — нужен для отцовской линии (Жеті ата)"
         date birth_date
         date death_date
         string birth_place
@@ -116,7 +117,7 @@ erDiagram
         int tree_id FK
         int user_id FK "nullable, SET_NULL"
         string action "create | update | delete"
-        string content_type "Person | Relationship"
+        string content_type "Person | Relationship | LifeEvent | Media | FamilyTree | TreeMember"
         int object_id
         json changes
         datetime created_at
@@ -147,7 +148,7 @@ erDiagram
 - **Список деревьев (`GET /api/trees/`) отдаёт `FamilyTreeListSerializer`**, а не `FamilyTreeDetailSerializer` — только `id/name/persons/relationships` не включены. Это осознанное изменение формы ответа (было: каждый элемент списка содержал вложенные `persons`/`relationships`) — вложенные данные остаются только в `retrieve` (`GET /api/trees/{id}/`) и в `full_tree`. Если фронтенд уже ожидает `persons`/`relationships` в списке — нужно переключить его на `full_tree` для конкретного дерева.
 - **`GET /api/trees/{tree_id}/persons/{id}/ancestors/` и `.../descendants/`** — иерархия предков/потомков конкретного человека, посчитанная одним рекурсивным SQL-запросом (`WITH RECURSIVE` по таблице `Relationship`, только строки с `relationship_type='parent'`), а не циклом в Python. Ответ — список persons с полем `depth` (1 = родитель/ребёнок, 2 = дед/внук, ...), отсортированный по возрастанию. Глубина рекурсии ограничена 50 поколениями (`MAX_ANCESTRY_DEPTH` в `trees/views.py`) — защита на случай кривых данных с циклом (A — родитель B, B — родитель A).
 - **Notification** — не привязана к `tree_id` в URL, у неё свой отдельный эндпоинт `GET/POST /api/notifications/` (через `DefaultRouter`, не через ручные `path()`, как persons/relationships), потому что уведомления пользователя приходят сразу по всем его деревьям, а не по одному конкретному. Создаётся автоматически сигналом `post_save` на `AuditLog` (`trees/signals.py`) — рассылается всем `TreeMember` дерева, кроме автора изменения. Это polling-модель (`GET .../?unread=true`, `POST .../{id}/mark_read/`, `POST .../mark_all_read/`), не real-time push через WebSocket.
-- **Person → Media** (1 ко многим): общая галерея архивных фото/сканов персоны — отдельно от `Person.photo` (ровно одно основное фото) и `LifeEvent.attachment` (вложение к конкретному событию). Как и `LifeEvent`, подгружается лениво отдельным запросом `GET /api/trees/{tree_id}/persons/{person_id}/media/`, не попадает в `full_tree` (п. 3.1 ТЗ). `MEDIA_URL`/`MEDIA_ROOT` теперь настроены в `config/settings.py`, файлы раздаются через `static()` **только при `DEBUG=True`** (см. `config/urls.py`) — в проде должно быть объектное хранилище с presigned URL (архитектура из ТЗ), а не раздача файлов самим Django.
+- **Person → Media** (1 ко многим): общая галерея архивных фото/сканов персоны — отдельно от `Person.photo` (ровно одно основное фото) и `LifeEvent.attachment` (вложение к конкретному событию). Как и `LifeEvent`, подгружается лениво отдельным запросом `GET /api/trees/{tree_id}/persons/{person_id}/media/`, не попадает в `full_tree` (п. 3.1 ТЗ). `MEDIA_URL`/`MEDIA_ROOT` настроены в `config/settings.py`; файлы раздаются через `django.views.static.serve` **независимо от `DEBUG`** (см. `config/urls.py`) — раньше раздача работала только при `DEBUG=True` и пропадала в проде, это было исправлено. В проде это по-прежнему не проверяет приватность/роли дерева и не годится под нагрузку — по-хорошему нужно объектное хранилище с presigned URL (архитектура из ТЗ), это временное решение.
 - **`GET /api/trees/public/`** — каталог всех деревьев с `privacy=public`, виден любому авторизованному пользователю независимо от членства (не только владельцу/участникам). Это `@action(detail=False)` у `FamilyTreeViewSet` — маршрут `trees/public/` регистрируется роутером **раньше** `trees/<pk>/`, поэтому конфликта с числовым ID нет. `link`-деревья в каталог не попадают: по смыслу они видны только тому, у кого есть прямая ссылка с `share_token`, а не через публичный список. Персональный `GET /api/trees/` ("мои деревья") этим каталогом не затрагивается — это два независимых списка.
 
 ## Известные пробелы в модели (см. также TODO в коде)
@@ -161,6 +162,20 @@ erDiagram
 - миграция `trees.0005_notification` (2026-07-02) — уведомления об изменениях (п. 2.4 ТЗ): модель `Notification` + сигнал на `AuditLog` (`trees/signals.py`) + эндпоинт `GET/POST /api/notifications/`. Список сразу со `select_related('tree', 'audit_log')`, чтобы не повторить N+1 из предыдущего пункта. Проверено тестами `trees/tests.py::NotificationTests`.
 - миграция `trees.0006_media` (2026-07-02) — общая медиа-галерея на персону: модель `Media` + эндпоинт `GET/POST /api/trees/{tree_id}/persons/{person_id}/media/`. Заодно настроены `MEDIA_URL`/`MEDIA_ROOT` (их не было вообще — загруженные `Person.photo`/`LifeEvent.attachment` физически сохранялись, но не отдавались). Проверено тестами `trees/tests.py::MediaGalleryTests` и живой загрузкой файла через `runserver`.
 - Каталог публичных деревьев (2026-07-02) — `GET /api/trees/public/` показывает все `privacy=public` деревья всем авторизованным пользователям; раньше `public` открывал чтение только по известному ID. Проверено тестами `trees/tests.py::PublicTreeCatalogTests` (включая изоляцию: `private`/`link` в каталог не попадают, личный список `GET /api/trees/` не меняется).
+- Валидация (2026-07-11) — `PersonSerializer` отклоняет смерть раньше рождения, `RelationshipSerializer` отклоняет связь человека с самим собой и связь между людьми из разных деревьев. Раньше это не проверялось вообще.
+- Участники дерева (2026-07-11) — `GET/DELETE /api/trees/{id}/members/`: владелец видит список участников с ролями и может убрать любого, кроме себя. Раньше был только `generate_invite`, без способа посмотреть/отозвать доступ.
+- Полный audit log (2026-07-11) — `log_audit()` пишется на create/update/delete для `Person`, `Relationship`, `LifeEvent`, `Media` и на изменение настроек `FamilyTree`, а не только на создание `Person`.
+- CORS (2026-07-11) — `django-cors-headers` был указан в `CORS_ALLOWED_ORIGINS`, но не установлен и не подключён к `MIDDLEWARE`; теперь реально работает.
+- Тесты и покрытие (2026-07-11) — `users/tests.py` был пустой заглушкой; добавлены тесты на регистрацию/логин/refresh, подключены `pytest`/`pytest-django`/`pytest-cov` (`pytest.ini`).
+- JWT logout (2026-07-11) — `POST /api/auth/logout/` добавляет refresh-токен в blacklist (`rest_framework_simplejwt.token_blacklist`); до этого отозвать токен было нельзя.
+- `members_count` и формальные permission-классы (2026-07-11) — `FamilyTreeListSerializer`/`FamilyTreeDetailSerializer` отдают число участников (через `annotate(Count('members'))`, без N+1); `trees/permissions.py` (`IsTreeOwner`, `IsTreeMember`) заменил россыпь одинаковых ручных проверок роли в разных действиях.
+- Docker (2026-07-11) — `Dockerfile` для Django-приложения + сервис `backend` в `docker-compose.yml` (раньше compose поднимал только Postgres/Redis, `docker-compose up` не давал рабочий API).
+- Production-настройки (2026-07-11) — `ALLOWED_HOSTS` читается из `.env` (был захардкожен `[]`), добавлено консольное `LOGGING`.
+- Хронология (2026-07-13) — `GET /api/trees/{id}/timeline/` объединяет рождения, смерти и `LifeEvent` в один список по дате; `?person_id=&depth=` сужает до прямых предков конкретного человека (переиспользует `_fetch_ancestry_chain`).
+- миграция `trees.0007_person_gender` (2026-07-14) — добавлено `Person.gender` (`M`/`F`, опционально) и `_fetch_paternal_chain()` — отдельный `WITH RECURSIVE`, идущий только по родителям с `gender='M'`. `timeline` принимает `?line=paternal` — это и есть «Жеті ата», семь поколений предков строго по мужской линии. Требует заполненного `gender` у предков; обрывается (не ошибается) на первом человеке без указанного пола.
+- Профиль пользователя (2026-07-14) — `GET/PATCH /api/auth/me/` (только `first_name`/`last_name`, `username`/`email` защищены от изменения через этот эндпоинт) и `POST /api/auth/change-password/` (требует текущий пароль, новый проверяется через `AUTH_PASSWORD_VALIDATORS`). Раньше пользователь не мог ни посмотреть свой профиль, ни сменить пароль через API.
+- Админка (2026-07-14) — `trees/admin.py`/`users/admin.py` вместо голого `admin.site.register(...)` получили `list_display`/`list_filter`/`search_fields` и инлайны (`TreeMember` внутри `FamilyTree`, `LifeEvent`/`Media` внутри `Person`); `AuditLog` сделан read-only в админке (записи создаёт только код).
 
 Осталось не реализовано (сознательно не входило в этот заход):
 - Real-time push уведомлений (WebSocket/Django Channels) — сейчас только polling через `GET /api/notifications/?unread=true`.
+- Объектное хранилище (S3/presigned URL) для медиа — файлы по-прежнему раздаёт сам Django.

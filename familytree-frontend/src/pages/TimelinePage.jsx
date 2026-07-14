@@ -79,6 +79,7 @@ export default function TimelinePage() {
     } else if (scope === 'zhety_ata') {
       params.personId = anchorId
       params.depth = 7
+      params.line = 'paternal'
     }
 
     fetchTimeline(treeId, params)
@@ -197,8 +198,8 @@ export default function TimelinePage() {
 
                 {scope === 'zhety_ata' && (
                   <p className="text-[11px] text-ink/50 italic">
-                    Семь поколений предков выбранного человека. Пол персон не фиксируется, поэтому строго отцовскую
-                    линию отделить пока нельзя — показаны предки по всем линиям.
+                    Семь поколений предков строго по мужской линии. Работает только там, где у предков указан пол —
+                    цепочка обрывается на первом человеке без пола (карточка «Редактировать», поле «Пол»).
                   </p>
                 )}
               </div>

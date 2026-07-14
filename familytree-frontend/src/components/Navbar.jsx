@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { BookOpen } from 'lucide-react'
+import { BookOpen, CircleUserRound } from 'lucide-react'
 
 export default function Navbar({ children }) {
   return (
@@ -21,7 +21,16 @@ export default function Navbar({ children }) {
         </div>
       </Link>
 
-      <div className="flex items-center gap-3 justify-between md:justify-end shrink-0 text-xs">{children}</div>
+      <div className="flex items-center gap-3 justify-between md:justify-end shrink-0 text-xs">
+        {children}
+        <Link
+          to="/profile"
+          title="Профиль"
+          className="p-2 text-ink/50 hover:text-olive hover:bg-cream-dark rounded-lg transition shrink-0"
+        >
+          <CircleUserRound className="h-5 w-5" />
+        </Link>
+      </div>
     </header>
   )
 }

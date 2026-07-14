@@ -135,6 +135,7 @@ export default function FamilyTreeGraph({
   const [newFirstName, setNewFirstName] = useState('')
   const [newLastName, setNewLastName] = useState('')
   const [newPatronymic, setNewPatronymic] = useState('')
+  const [newGender, setNewGender] = useState('')
   const [newBirthDate, setNewBirthDate] = useState('')
   const [newBirthPlace, setNewBirthPlace] = useState('')
 
@@ -334,6 +335,7 @@ export default function FamilyTreeGraph({
       first_name: newFirstName.trim(),
       last_name: newLastName.trim(),
       patronymic: newPatronymic.trim() || undefined,
+      gender: newGender || undefined,
       birth_date: newBirthDate || null,
       birth_place: newBirthPlace.trim() || undefined,
     }
@@ -343,6 +345,7 @@ export default function FamilyTreeGraph({
     setNewFirstName('')
     setNewLastName('')
     setNewPatronymic('')
+    setNewGender('')
     setNewBirthDate('')
     setNewBirthPlace('')
     setShowAddForm(false)
@@ -581,17 +584,34 @@ export default function FamilyTreeGraph({
                 </div>
               </div>
 
-              <div>
-                <label htmlFor="new-member-patronymic" className="block text-xs font-semibold text-ink/70 mb-0.5">
-                  Отчество
-                </label>
-                <input
-                  id="new-member-patronymic"
-                  type="text"
-                  value={newPatronymic}
-                  onChange={(e) => setNewPatronymic(e.target.value)}
-                  className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-1.5 focus:outline-none text-ink"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="new-member-patronymic" className="block text-xs font-semibold text-ink/70 mb-0.5">
+                    Отчество
+                  </label>
+                  <input
+                    id="new-member-patronymic"
+                    type="text"
+                    value={newPatronymic}
+                    onChange={(e) => setNewPatronymic(e.target.value)}
+                    className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-1.5 focus:outline-none text-ink"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="new-member-gender" className="block text-xs font-semibold text-ink/70 mb-0.5">
+                    Пол
+                  </label>
+                  <select
+                    id="new-member-gender"
+                    value={newGender}
+                    onChange={(e) => setNewGender(e.target.value)}
+                    className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-1.5 focus:outline-none text-ink"
+                  >
+                    <option value="">Не указан</option>
+                    <option value="M">Мужской</option>
+                    <option value="F">Женский</option>
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

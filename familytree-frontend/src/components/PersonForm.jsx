@@ -21,6 +21,7 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
   const [firstName, setFirstName] = useState(initialPerson?.first_name ?? '')
   const [lastName, setLastName] = useState(initialPerson?.last_name ?? '')
   const [patronymic, setPatronymic] = useState(initialPerson?.patronymic ?? '')
+  const [gender, setGender] = useState(initialPerson?.gender ?? '')
   const [birthDate, setBirthDate] = useState(initialPerson?.birth_date ?? '')
   const [deathDate, setDeathDate] = useState(initialPerson?.death_date ?? '')
   const [birthPlace, setBirthPlace] = useState(initialPerson?.birth_place ?? '')
@@ -68,6 +69,7 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       patronymic: patronymic.trim(),
+      gender,
       birth_date: birthDate || null,
       death_date: deathDate || null,
       birth_place: birthPlace.trim(),
@@ -110,16 +112,28 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
         </div>
       </div>
 
-      <div>
-        <label htmlFor="person-patronymic" className={labelClass}>
-          Отчество
-        </label>
-        <input
-          id="person-patronymic"
-          value={patronymic}
-          onChange={(e) => setPatronymic(e.target.value)}
-          className={inputClass}
-        />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="person-patronymic" className={labelClass}>
+            Отчество
+          </label>
+          <input
+            id="person-patronymic"
+            value={patronymic}
+            onChange={(e) => setPatronymic(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label htmlFor="person-gender" className={labelClass}>
+            Пол
+          </label>
+          <select id="person-gender" value={gender} onChange={(e) => setGender(e.target.value)} className={inputClass}>
+            <option value="">Не указан</option>
+            <option value="M">Мужской</option>
+            <option value="F">Женский</option>
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

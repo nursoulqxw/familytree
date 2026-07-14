@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { TreePine, UserPlus } from 'lucide-react'
-import { createTree, deleteTree, listTrees } from '../api/trees'
+import { createTree, deleteTree, listTrees, renameTree } from '../api/trees'
 import Modal from '../components/Modal'
 import Navbar from '../components/Navbar'
 import TreeCard from '../components/TreeCard'
@@ -53,6 +53,16 @@ export default function DashboardPage() {
       await loadTrees()
     } catch {
       setError('Не удалось удалить дерево (возможно, вы не владелец)')
+    }
+  }
+
+  async function handleRename(treeId, newName) {
+    try {
+      await renameTree(treeId, newName)
+      await loadTrees()
+    } catch {
+      setError('Не удалось переименовать дерево (нужны права владельца)')
+      throw new Error('rename failed')
     }
   }
 
@@ -149,7 +159,7 @@ export default function DashboardPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {trees.map((tree) => (
-              <TreeCard key={tree.id} tree={tree} onDelete={handleDelete} />
+              <TreeCard key={tree.id} tree={tree} onDelete={handleDelete} onRename={handleRename} />
             ))}
           </div>
         )}

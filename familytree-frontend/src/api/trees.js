@@ -33,15 +33,21 @@ export function updateTreePrivacy(treeId, privacy) {
   return client.patch(`/trees/${treeId}/`, { privacy }).then((res) => res.data)
 }
 
+export function renameTree(treeId, name) {
+  return client.patch(`/trees/${treeId}/`, { name }).then((res) => res.data)
+}
+
 export function fetchAuditLog(treeId) {
   return client.get(`/trees/${treeId}/audit_log/`).then((res) => res.data)
 }
 
-/** personId — показать только прямых предков этого человека; depth — сколько поколений (7 = «Жеті ата»). */
-export function fetchTimeline(treeId, { personId, depth } = {}) {
+/** personId — показать только прямых предков этого человека; depth — сколько поколений
+ * (7 = «Жеті ата»); line='paternal' — строго по мужской линии (нужен Person.gender). */
+export function fetchTimeline(treeId, { personId, depth, line } = {}) {
   const params = {}
   if (personId) params.person_id = personId
   if (depth) params.depth = depth
+  if (line) params.line = line
   return client.get(`/trees/${treeId}/timeline/`, { params }).then((res) => res.data)
 }
 

@@ -22,7 +22,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from trees.views import (
     FamilyTreeViewSet, PersonViewSet, RelationshipViewSet, LifeEventViewSet, NotificationViewSet, MediaViewSet,
 )
-from users.views import register, login, logout
+from users.views import register, login, logout, profile, change_password
 from core.views import dev_console
 
 router = DefaultRouter()
@@ -43,6 +43,8 @@ urlpatterns = [
     path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     # отзыв refresh-токена (POST {"refresh": "..."} -> 204)
     path('api/auth/logout/', logout, name='token_logout'),
+    path('api/auth/me/', profile, name='user_profile'),
+    path('api/auth/change-password/', change_password, name='change_password'),
     path('api/', include(router.urls)),
     path('api/trees/<int:tree_id>/persons/', PersonViewSet.as_view({'get': 'list', 'post': 'create'})),
     path('api/trees/<int:tree_id>/persons/<int:pk>/', PersonViewSet.as_view({

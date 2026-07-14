@@ -1,7 +1,10 @@
 # Локальный запуск backend без Docker
 
-Инструкция для запуска `familytree-backend` напрямую на машине разработчика, без `docker-compose.yml`
-(Docker в проекте пока используется только для удобства подъёма PostgreSQL/Redis, для самого Django он не обязателен).
+Инструкция для запуска `familytree-backend` напрямую на машине разработчика, без `docker-compose.yml`.
+Начиная с `Dockerfile` в проекте есть и полностью контейнерный вариант — `docker compose up --build` в
+`familytree-backend/` поднимает Postgres, Redis и сам Django (миграции + `gunicorn`) одной командой; секреты
+берутся из того же `.env` (см. шаг 3 ниже). Redis по-прежнему нигде не используется в коде — присутствует
+про запас, не нужен для запуска ни в контейнере, ни локально.
 
 ## 0. Что нужно поставить заранее
 
@@ -69,6 +72,13 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
+Тесты (72 теста, ~96% покрытия по `trees`/`users`):
+
+```powershell
+pytest                      # с покрытием, настройки в pytest.ini
+python manage.py test       # тот же набор тестов через штатный раннер Django
+```
+
 ## 5. Запуск сервера
 
 ```powershell
@@ -99,4 +109,4 @@ curl -X POST http://localhost:8000/api/auth/login/ -H "Content-Type: application
 
 - **`django.db.utils.OperationalError: could not connect to server`** — PostgreSQL-служба не запущена, либо неверный `DB_HOST`/`DB_PORT` в `.env`.
 - **`ImportError: PIL`** — не установлен Pillow (нужен для `ImageField` в модели `Person`). В `requirements.txt` он уже добавлен, переустанови зависимости: `pip install -r requirements.txt`.
-- **Загруженные файлы (`Person.photo`, `LifeEvent.attachment`, `Media.file`)** сохраняются в `familytree-backend/media/` и отдаются по `MEDIA_URL=/media/...` **только при `DEBUG=True`** (см. `config/urls.py`, `static()` подключён условием `if settings.DEBUG`). В проде так делать нельзя — по ТЗ хранилище должно быть объектным (S3-подобным) с presigned URL, а не раздачей файлов самим Django.
+- **Загруженные файлы (`Person.photo`, `LifeEvent.attachment`, `Media.file`)** сохраняются в `familytree-backend/media/` и отдаются по `MEDIA_URL=/media/...` независимо от `DEBUG` (`config/urls.py`, через `django.views.static.serve`). Это временное решение до объектного хранилища (S3-подобного, с presigned URL, как задумано по ТЗ) — раздача самим Django не проверяет приватность/роли дерева и не годится под нагрузку.

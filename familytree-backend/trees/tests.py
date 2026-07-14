@@ -697,3 +697,57 @@ class TimelineTests(TestCase):
         stranger = User.objects.create_user(username='tl_stranger', password='testpass123')
         resp = make_client(stranger).get(f'/api/trees/{self.tree.id}/timeline/')
         self.assertEqual(resp.status_code, 403)
+
+
+class PaternalChainTests(TestCase):
+    """?line=paternal — строго отцовская линия («Жеті ата»), требует Person.gender."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username='pat_owner', password='testpass123')
+        self.tree = FamilyTree.objects.create(owner=self.owner, name='Paternal Tree')
+        TreeMember.objects.create(tree=self.tree, user=self.owner, role='owner')
+        self.client = make_client(self.owner)
+
+        self.ggf = Person.objects.create(tree=self.tree, first_name='GGF', last_name='X', gender='M', birth_date='1900-01-01')
+        self.gf = Person.objects.create(tree=self.tree, first_name='GF', last_name='X', gender='M', birth_date='1930-01-01')
+        self.father = Person.objects.create(tree=self.tree, first_name='Father', last_name='X', gender='M', birth_date='1960-01-01')
+        self.mother = Person.objects.create(tree=self.tree, first_name='Mother', last_name='X', gender='F', birth_date='1962-01-01')
+        self.mothers_father = Person.objects.create(tree=self.tree, first_name='MGF', last_name='X', gender='M', birth_date='1935-01-01')
+        self.self_person = Person.objects.create(tree=self.tree, first_name='Self', last_name='X', birth_date='1990-01-01')
+
+        Relationship.objects.create(tree=self.tree, person_from=self.ggf, person_to=self.gf, relationship_type='parent')
+        Relationship.objects.create(tree=self.tree, person_from=self.gf, person_to=self.father, relationship_type='parent')
+        Relationship.objects.create(tree=self.tree, person_from=self.father, person_to=self.self_person, relationship_type='parent')
+        Relationship.objects.create(tree=self.tree, person_from=self.mother, person_to=self.self_person, relationship_type='parent')
+        Relationship.objects.create(tree=self.tree, person_from=self.mothers_father, person_to=self.mother, relationship_type='parent')
+
+    def _person_ids(self, **params):
+        resp = self.client.get(f'/api/trees/{self.tree.id}/timeline/', {'person_id': self.self_person.id, **params})
+        self.assertEqual(resp.status_code, 200)
+        return {item['person']['id'] for item in resp.json()}
+
+    def test_paternal_line_excludes_maternal_ancestors(self):
+        person_ids = self._person_ids(line='paternal')
+        self.assertEqual(person_ids, {self.self_person.id, self.father.id, self.gf.id, self.ggf.id})
+        self.assertNotIn(self.mother.id, person_ids)
+        self.assertNotIn(self.mothers_father.id, person_ids)
+
+    def test_default_line_includes_both_sides(self):
+        person_ids = self._person_ids()  # line не передан — 'all' по умолчанию
+        self.assertEqual(
+            person_ids,
+            {self.self_person.id, self.father.id, self.gf.id, self.ggf.id, self.mother.id, self.mothers_father.id},
+        )
+
+    def test_paternal_line_depth_limits_generations(self):
+        person_ids = self._person_ids(line='paternal', depth=2)
+        self.assertEqual(person_ids, {self.self_person.id, self.father.id, self.gf.id})
+        self.assertNotIn(self.ggf.id, person_ids)
+
+    def test_paternal_line_stops_when_gender_missing(self):
+        # без указанного пола у отца цепочку вверх строить не от чего — он сам не пройдёт
+        # фильтр p.gender='M', так что выше self_person ничего не попадёт
+        self.father.gender = ''
+        self.father.save()
+        person_ids = self._person_ids(line='paternal')
+        self.assertEqual(person_ids, {self.self_person.id})

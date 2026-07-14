@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getTree } from '../api/trees'
+import { Check } from 'lucide-react'
+import { getTree, renameTree } from '../api/trees'
 import InviteManager from '../components/InviteManager'
 import Navbar from '../components/Navbar'
 
@@ -9,11 +10,37 @@ export default function SettingsPage() {
   const [tree, setTree] = useState(null)
   const [error, setError] = useState('')
 
+  const [name, setName] = useState('')
+  const [savingName, setSavingName] = useState(false)
+  const [nameSaved, setNameSaved] = useState(false)
+
   useEffect(() => {
     getTree(treeId)
-      .then(setTree)
+      .then((data) => {
+        setTree(data)
+        setName(data.name)
+      })
       .catch(() => setError('Не удалось загрузить дерево'))
   }, [treeId])
+
+  async function handleSaveName(event) {
+    event.preventDefault()
+    const trimmed = name.trim()
+    if (!trimmed || trimmed === tree.name) return
+    setSavingName(true)
+    setError('')
+    setNameSaved(false)
+    try {
+      const updated = await renameTree(treeId, trimmed)
+      setTree((prev) => ({ ...prev, name: updated.name }))
+      setNameSaved(true)
+      setTimeout(() => setNameSaved(false), 2000)
+    } catch {
+      setError('Не удалось переименовать дерево (нужны права владельца)')
+    } finally {
+      setSavingName(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-cream text-ink font-sans flex flex-col">
@@ -34,13 +61,40 @@ export default function SettingsPage() {
         )}
 
         {tree && (
-          <InviteManager treeId={treeId} privacy={tree.privacy} onPrivacyUpdated={(privacy) => setTree((prev) => ({ ...prev, privacy }))} />
-        )}
+          <>
+            <section className="bg-white border border-cream-border rounded-2xl p-5 mb-6 shadow-xs">
+              <h2 className="font-serif font-black text-sm uppercase tracking-tight text-ink mb-3">Основное</h2>
+              <form onSubmit={handleSaveName} className="flex items-end gap-2">
+                <div className="flex-1">
+                  <label htmlFor="tree-name" className="block text-xs font-semibold text-ink/70 mb-1">
+                    Название дерева
+                  </label>
+                  <input
+                    id="tree-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-olive text-ink"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={savingName || name.trim() === tree.name}
+                  className="px-4 py-2 text-xs font-medium bg-olive hover:bg-olive-700 text-white rounded-md shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                >
+                  {nameSaved ? <Check className="h-3.5 w-3.5" /> : null}
+                  {savingName ? 'Сохраняем…' : nameSaved ? 'Сохранено' : 'Сохранить'}
+                </button>
+              </form>
+            </section>
 
-        <p className="text-xs italic text-ink/50 mt-6 max-w-md">
-          Список участников со списком ролей пока недоступен: на бэкенде нет эндпоинта для получения членов дерева
-          (например, GET /api/trees/{'{'}id{'}'}/members/). Появится, когда такой эндпоинт будет реализован.
-        </p>
+            <InviteManager
+              treeId={treeId}
+              privacy={tree.privacy}
+              onPrivacyUpdated={(privacy) => setTree((prev) => ({ ...prev, privacy }))}
+            />
+          </>
+        )}
       </main>
     </div>
   )

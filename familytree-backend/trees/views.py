@@ -64,6 +64,38 @@ def _fetch_ancestry_chain(tree, person, direction):
         return cursor.fetchall()
 
 
+def _fetch_paternal_chain(tree, person):
+    """Как _fetch_ancestry_chain(direction='ancestors'), но идёт только по отцовской линии:
+    на каждом шаге берёт родителя с gender='M'. Нужно для «Жеті ата» — семи поколений
+    предков строго по мужской линии. Требует заполненного Person.gender у предков —
+    обрывается (не поднимается выше) на первом человеке без указанного пола или без
+    известного отца, поэтому неполные данные дают укороченную, а не неверную цепочку.
+    """
+    rel_table = Relationship._meta.db_table
+    person_table = Person._meta.db_table
+
+    sql = f"""
+        WITH RECURSIVE chain(person_id, depth) AS (
+            SELECT r.person_from_id, 1
+            FROM {rel_table} r
+            JOIN {person_table} p ON p.id = r.person_from_id
+            WHERE r.person_to_id = %s AND r.relationship_type = 'parent' AND r.tree_id = %s AND p.gender = 'M'
+
+            UNION
+
+            SELECT r.person_from_id, c.depth + 1
+            FROM {rel_table} r
+            JOIN {person_table} p ON p.id = r.person_from_id
+            JOIN chain c ON r.person_to_id = c.person_id
+            WHERE r.relationship_type = 'parent' AND r.tree_id = %s AND p.gender = 'M' AND c.depth < %s
+        )
+        SELECT person_id, MIN(depth) AS depth FROM chain GROUP BY person_id ORDER BY depth
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(sql, [person.id, tree.id, tree.id, MAX_ANCESTRY_DEPTH])
+        return cursor.fetchall()
+
+
 def _serialize_ancestry_chain(chain):
     """Превращает результат _fetch_ancestry_chain в JSON-совместимый список.
 
@@ -248,7 +280,9 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
     def timeline(self, request, pk=None):
         """Хронология дерева: рождения, смерти и жизненные события (LifeEvent), одним
         списком по дате. Без параметров — вся семья; с ?person_id=&depth= — только
-        прямые предки указанного человека (глубина в поколениях, для «Жеті ата» — 7).
+        прямые предки указанного человека (глубина в поколениях). ?line=paternal
+        сужает до строго отцовской линии (нужен Person.gender='M' у предков) — для
+        «Жеті ата» фронт шлёт person_id, depth=7, line=paternal.
 
         Доступ — как у full_tree (учитывает privacy дерева через get_object()); тип
         события/период/живые-умершие/наличие фото фильтруются уже на фронтенде —
@@ -260,7 +294,8 @@ class FamilyTreeViewSet(viewsets.ModelViewSet):
         person_id = request.query_params.get('person_id')
         if person_id:
             anchor = get_object_or_404(Person, id=person_id, tree=tree)
-            chain = _fetch_ancestry_chain(tree, anchor, 'ancestors')
+            line = request.query_params.get('line', 'all')
+            chain = _fetch_paternal_chain(tree, anchor) if line == 'paternal' else _fetch_ancestry_chain(tree, anchor, 'ancestors')
             depth_param = request.query_params.get('depth')
             if depth_param:
                 try:

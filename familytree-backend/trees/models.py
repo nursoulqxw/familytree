@@ -57,10 +57,18 @@ class TreeMember(models.Model):
 class Person(models.Model):
     """Один человек в дереве (предок/потомок/родственник). Анкетные поля жёстко
     заданы для типовых случаев, extra_data — джокер для всего нестандартного."""
+    GENDER_CHOICES = [
+        ('M', 'Мужской'),
+        ('F', 'Женский'),
+    ]
+
     tree = models.ForeignKey(FamilyTree, on_delete=models.CASCADE, related_name='persons')
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     patronymic = models.CharField(max_length=100, blank=True)
+    # не обязателен (blank) — у многих уже внесённых персон он не указан; нужен для
+    # построения строго отцовской линии предков («Жеті ата», см. _fetch_paternal_chain)
+    gender = models.CharField(max_length=1, choices=GENDER_CHOICES, blank=True)
 
     birth_date = models.DateField(null=True, blank=True)
     death_date = models.DateField(null=True, blank=True)

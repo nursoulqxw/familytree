@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import DashboardPage from './pages/DashboardPage'
 import InvitePage from './pages/InvitePage'
 import LoginPage from './pages/LoginPage'
+import ProfilePage from './pages/ProfilePage'
 import RegisterPage from './pages/RegisterPage'
 import SettingsPage from './pages/SettingsPage'
 import TimelinePage from './pages/TimelinePage'
@@ -19,6 +20,7 @@ export default function App() {
 
         <Route element={<PrivateRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/trees/:treeId" element={<TreeDetailPage />} />
           <Route path="/trees/:treeId/timeline" element={<TimelinePage />} />
           <Route path="/trees/:treeId/settings" element={<SettingsPage />} />

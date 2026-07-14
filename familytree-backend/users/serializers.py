@@ -44,3 +44,19 @@ class RegisterResponseSerializer(TokenResponseSerializer):
 class LogoutSerializer(serializers.Serializer):
     """Только для документации Swagger — тело запроса POST /api/auth/logout/."""
     refresh = serializers.CharField()
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    """Профиль текущего пользователя (GET/PATCH /api/auth/me/). username и email — по
+    сути логин, менять их через этот эндпоинт нельзя (email хоть и не используется для
+    входа, менять его без подтверждения владения ящиком было бы небезопасно)."""
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'created_at']
+        read_only_fields = ['id', 'username', 'email', 'created_at']
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """Только для документации Swagger — тело запроса POST /api/auth/change-password/."""
+    old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
