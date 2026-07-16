@@ -1,8 +1,11 @@
 import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 
+// Относительный '/api' работает, когда фронт и бэк на одном origin (Vite dev-прокси,
+// nginx-контейнер в docker-compose). Если задеплоены на разные домены (например
+// Vercel + Render), нужен абсолютный VITE_API_URL — см. DEPLOY.md.
 const client = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
 })
 
 client.interceptors.request.use((config) => {

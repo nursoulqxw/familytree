@@ -1,4 +1,7 @@
+import { useTranslation } from '../i18n/useTranslation'
+
 export default function Modal({ title, onClose, children }) {
+  const { t } = useTranslation()
   return (
     <div
       className="fixed inset-0 z-50 bg-ink/50 backdrop-blur-xs flex items-center justify-center p-4"
@@ -13,7 +16,7 @@ export default function Modal({ title, onClose, children }) {
           <button
             type="button"
             onClick={onClose}
-            aria-label="Закрыть"
+            aria-label={t('common.close')}
             className="text-white/80 hover:text-white font-sans text-xl font-bold cursor-pointer bg-transparent border-0 p-0 shadow-none"
           >
             &times;

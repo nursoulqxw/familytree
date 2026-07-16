@@ -1,27 +1,33 @@
 import { useEffect, useState } from 'react'
 import { FileClock, RefreshCcw, Settings, Trash2, User, UserPlus, Users } from 'lucide-react'
 import { fetchAuditLog } from '../api/trees'
+import { useTranslation } from '../i18n/useTranslation'
 import { useAuthStore } from '../store/authStore'
 
-const ACTION_STYLES = {
-  'create:Person': { icon: <UserPlus className="h-3 w-3 text-emerald-700" />, label: 'Добавлена персона', bg: 'bg-emerald-50 text-emerald-800 border-emerald-100' },
-  'delete:Person': { icon: <Trash2 className="h-3 w-3 text-red-600" />, label: 'Удалена персона', bg: 'bg-red-50 text-red-800 border-red-100' },
-  'update:Person': { icon: <User className="h-3 w-3 text-olive" />, label: 'Изменена персона', bg: 'bg-olive/5 text-olive border-olive/10' },
-  'create:Relationship': { icon: <Users className="h-3 w-3 text-blue-700" />, label: 'Добавлена связь', bg: 'bg-blue-50 text-blue-800 border-blue-100' },
-  'delete:Relationship': { icon: <Trash2 className="h-3 w-3 text-rose-700" />, label: 'Удалена связь', bg: 'bg-rose-50 text-rose-800 border-rose-100' },
-  'update:Relationship': { icon: <Users className="h-3 w-3 text-blue-700" />, label: 'Изменена связь', bg: 'bg-blue-50 text-blue-800 border-blue-100' },
-  'update:TreeSettings': { icon: <Settings className="h-3 w-3 text-gray-700" />, label: 'Параметры архива', bg: 'bg-gray-50 text-gray-800 border-gray-100' },
-}
-
-function styleFor(log) {
-  return ACTION_STYLES[`${log.action}:${log.content_type}`] ?? {
-    icon: <RefreshCcw className="h-3 w-3 text-stone-600" />,
-    label: `${log.action} ${log.content_type}`,
-    bg: 'bg-stone-50 text-stone-800 border-stone-100',
-  }
-}
+const LOCALES = { ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' }
 
 export default function AuditLogView({ treeId }) {
+  const { t, language } = useTranslation()
+  const locale = LOCALES[language]
+
+  const ACTION_STYLES = {
+    'create:Person': { icon: <UserPlus className="h-3 w-3 text-emerald-700" />, label: t('audit.createPerson'), bg: 'bg-emerald-50 text-emerald-800 border-emerald-100' },
+    'delete:Person': { icon: <Trash2 className="h-3 w-3 text-red-600" />, label: t('audit.deletePerson'), bg: 'bg-red-50 text-red-800 border-red-100' },
+    'update:Person': { icon: <User className="h-3 w-3 text-olive" />, label: t('audit.updatePerson'), bg: 'bg-olive/5 text-olive border-olive/10' },
+    'create:Relationship': { icon: <Users className="h-3 w-3 text-blue-700" />, label: t('audit.createRelationship'), bg: 'bg-blue-50 text-blue-800 border-blue-100' },
+    'delete:Relationship': { icon: <Trash2 className="h-3 w-3 text-rose-700" />, label: t('audit.deleteRelationship'), bg: 'bg-rose-50 text-rose-800 border-rose-100' },
+    'update:Relationship': { icon: <Users className="h-3 w-3 text-blue-700" />, label: t('audit.updateRelationship'), bg: 'bg-blue-50 text-blue-800 border-blue-100' },
+    'update:TreeSettings': { icon: <Settings className="h-3 w-3 text-gray-700" />, label: t('audit.updateTreeSettings'), bg: 'bg-gray-50 text-gray-800 border-gray-100' },
+  }
+
+  function styleFor(log) {
+    return ACTION_STYLES[`${log.action}:${log.content_type}`] ?? {
+      icon: <RefreshCcw className="h-3 w-3 text-stone-600" />,
+      label: `${log.action} ${log.content_type}`,
+      bg: 'bg-stone-50 text-stone-800 border-stone-100',
+    }
+  }
+
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -31,27 +37,28 @@ export default function AuditLogView({ treeId }) {
     setLoading(true)
     fetchAuditLog(treeId)
       .then(setLogs)
-      .catch(() => setError('История изменений доступна только участникам дерева'))
+      .catch(() => setError(t('audit.error')))
       .finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [treeId])
 
   return (
-    <div className="bg-white border border-cream-border rounded-[32px] p-6 text-ink space-y-4 shadow-xs">
+    <div className="bg-cream-light border border-cream-border rounded-[32px] p-6 text-ink space-y-4 shadow-xs">
       <div className="border-b border-cream-border pb-3">
         <h3 className="font-serif font-black text-sm tracking-tight text-ink flex items-center gap-1.5 uppercase">
-          <FileClock className="h-4 w-4 text-olive" /> Журнал совместных действий
+          <FileClock className="h-4 w-4 text-olive" /> {t('audit.title')}
         </h3>
-        <p className="text-[10px] text-ink/65 leading-tight mt-1">Кто и что изменил в архиве.</p>
+        <p className="text-[10px] text-ink/65 leading-tight mt-1">{t('audit.subtitle')}</p>
       </div>
 
       {loading ? (
-        <p className="text-xs text-ink/40 italic py-6 text-center">Загрузка…</p>
+        <p className="text-xs text-ink/40 italic py-6 text-center">{t('common.loading')}</p>
       ) : error ? (
         <p role="alert" className="text-rose-900 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-xs">
           {error}
         </p>
       ) : logs.length === 0 ? (
-        <p className="text-xs text-ink/40 italic py-6 text-center">Операций в архиве не зафиксировано.</p>
+        <p className="text-xs text-ink/40 italic py-6 text-center">{t('audit.empty')}</p>
       ) : (
         <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
           {logs.map((log) => {
@@ -64,15 +71,15 @@ export default function AuditLogView({ treeId }) {
                     {style.label}
                   </span>
                   <span className="text-[9px] font-mono text-ink/40 shrink-0">
-                    {new Date(log.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(log.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between text-[9px] text-ink/40 border-t border-dashed border-cream-border pt-1.5 mt-1.5">
                   <span>
-                    {log.user === currentUserId ? 'Изменили: Вы' : log.user ? `Участник #${log.user}` : 'Неизвестный участник'}
+                    {log.user === currentUserId ? t('audit.byYou') : log.user ? t('audit.byMember', { id: log.user }) : t('audit.unknownMember')}
                   </span>
-                  <span className="font-mono text-[8px]">{new Date(log.created_at).toLocaleDateString('ru-RU')}</span>
+                  <span className="font-mono text-[8px]">{new Date(log.created_at).toLocaleDateString(locale)}</span>
                 </div>
               </div>
             )

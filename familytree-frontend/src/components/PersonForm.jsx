@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from '../i18n/useTranslation'
 
 function extraDataToRows(extraData) {
   if (!extraData || typeof extraData !== 'object') return []
@@ -14,10 +15,11 @@ function rowsToExtraData(rows) {
 }
 
 const inputClass =
-  'w-full text-sm bg-white rounded-md border border-cream-border px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-olive text-ink'
+  'w-full text-sm bg-cream-light rounded-md border border-cream-border px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-olive text-ink'
 const labelClass = 'block text-xs font-semibold text-ink/70 mb-1'
 
 export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete, submitting }) {
+  const { t } = useTranslation()
   const [firstName, setFirstName] = useState(initialPerson?.first_name ?? '')
   const [lastName, setLastName] = useState(initialPerson?.last_name ?? '')
   const [patronymic, setPatronymic] = useState(initialPerson?.patronymic ?? '')
@@ -57,11 +59,11 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
     setError('')
 
     if (!firstName.trim() || !lastName.trim()) {
-      setError('Имя и фамилия обязательны')
+      setError(t('personForm.requiredError'))
       return
     }
     if (birthDate && deathDate && deathDate < birthDate) {
-      setError('Дата смерти не может быть раньше даты рождения')
+      setError(t('personForm.dateError'))
       return
     }
 
@@ -88,7 +90,7 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="person-first-name" className={labelClass}>
-            Имя
+            {t('common.firstName')}
           </label>
           <input
             id="person-first-name"
@@ -100,7 +102,7 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
         </div>
         <div>
           <label htmlFor="person-last-name" className={labelClass}>
-            Фамилия
+            {t('common.lastName')}
           </label>
           <input
             id="person-last-name"
@@ -115,7 +117,7 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="person-patronymic" className={labelClass}>
-            Отчество
+            {t('common.patronymic')}
           </label>
           <input
             id="person-patronymic"
@@ -126,12 +128,12 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
         </div>
         <div>
           <label htmlFor="person-gender" className={labelClass}>
-            Пол
+            {t('common.gender')}
           </label>
           <select id="person-gender" value={gender} onChange={(e) => setGender(e.target.value)} className={inputClass}>
-            <option value="">Не указан</option>
-            <option value="M">Мужской</option>
-            <option value="F">Женский</option>
+            <option value="">{t('common.genderUnset')}</option>
+            <option value="M">{t('common.genderMale')}</option>
+            <option value="F">{t('common.genderFemale')}</option>
           </select>
         </div>
       </div>
@@ -139,7 +141,7 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="person-birth-date" className={labelClass}>
-            Дата рождения
+            {t('common.birthDate')}
           </label>
           <input
             id="person-birth-date"
@@ -151,7 +153,7 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
         </div>
         <div>
           <label htmlFor="person-death-date" className={labelClass}>
-            Дата смерти
+            {t('common.deathDate')}
           </label>
           <input
             id="person-death-date"
@@ -165,7 +167,7 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
 
       <div>
         <label htmlFor="person-birth-place" className={labelClass}>
-          Место рождения
+          {t('common.birthPlace')}
         </label>
         <input
           id="person-birth-place"
@@ -177,7 +179,7 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
 
       <div>
         <label htmlFor="person-bio" className={labelClass}>
-          Биография
+          {t('common.bio')}
         </label>
         <textarea
           id="person-bio"
@@ -190,7 +192,7 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
 
       <div>
         <label htmlFor="person-photo" className={labelClass}>
-          Фото
+          {t('common.photo')}
         </label>
         <input
           id="person-photo"
@@ -200,23 +202,23 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
           className="w-full text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-olive/10 file:text-olive file:cursor-pointer"
         />
         {photoPreview && (
-          <img className="h-24 w-24 object-cover rounded-xl mt-2 border border-cream-border" src={photoPreview} alt="Предпросмотр" />
+          <img className="h-24 w-24 object-cover rounded-xl mt-2 border border-cream-border" src={photoPreview} alt={t('common.preview')} />
         )}
       </div>
 
       <fieldset className="border border-cream-border rounded-xl p-3.5">
-        <legend className="text-xs font-semibold text-ink/70 px-1.5">Дополнительные поля</legend>
+        <legend className="text-xs font-semibold text-ink/70 px-1.5">{t('personForm.extraFieldsLegend')}</legend>
         <div className="space-y-2">
           {extraRows.map((row, index) => (
             <div className="flex gap-2 items-center" key={index}>
               <input
-                placeholder="Название"
+                placeholder={t('common.name')}
                 value={row.key}
                 onChange={(e) => updateRow(index, 'key', e.target.value)}
                 className={inputClass}
               />
               <input
-                placeholder="Значение"
+                placeholder={t('personForm.valuePlaceholder')}
                 value={row.value}
                 onChange={(e) => updateRow(index, 'value', e.target.value)}
                 className={inputClass}
@@ -224,7 +226,7 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
               <button
                 type="button"
                 onClick={() => removeRow(index)}
-                aria-label="Удалить поле"
+                aria-label={t('personForm.removeFieldAria')}
                 className="shrink-0 text-ink/50 hover:text-rose-700 bg-transparent border-0 shadow-none text-lg leading-none px-1 cursor-pointer"
               >
                 ×
@@ -237,7 +239,7 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
           onClick={addRow}
           className="mt-2 text-xs font-semibold text-olive bg-olive/10 hover:bg-olive/20 px-3 py-1.5 rounded-md cursor-pointer"
         >
-          + добавить поле
+          {t('personForm.addField')}
         </button>
       </fieldset>
 
@@ -253,15 +255,15 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
           onClick={onCancel}
           className="px-4 py-2 text-xs font-medium text-ink/70 hover:bg-cream-dark rounded-md cursor-pointer bg-transparent border-0 shadow-none"
         >
-          Отмена
+          {t('common.cancel')}
         </button>
         {isEdit && onDelete && (
           <button
             type="button"
             onClick={() => onDelete(initialPerson.id)}
-            className="px-4 py-2 text-xs font-medium text-rose-700 border border-rose-200 bg-white hover:bg-rose-50 rounded-md cursor-pointer"
+            className="px-4 py-2 text-xs font-medium text-rose-700 border border-rose-200 bg-cream-light hover:bg-rose-50 rounded-md cursor-pointer"
           >
-            Удалить
+            {t('common.delete')}
           </button>
         )}
         <button
@@ -269,7 +271,7 @@ export default function PersonForm({ initialPerson, onSubmit, onCancel, onDelete
           disabled={submitting}
           className="px-4 py-2 text-xs font-semibold bg-olive text-white rounded-md hover:bg-olive-700 shadow-xs cursor-pointer disabled:opacity-55"
         >
-          {isEdit ? 'Сохранить' : 'Добавить'}
+          {isEdit ? t('common.save') : t('personForm.addPerson')}
         </button>
       </div>
     </form>

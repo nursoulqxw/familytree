@@ -4,6 +4,11 @@ export function listTrees() {
   return client.get('/trees/').then((res) => res.data)
 }
 
+/** Каталог всех открытых (privacy=public) деревьев — видно любому авторизованному пользователю. */
+export function listPublicTrees() {
+  return client.get('/trees/public/').then((res) => res.data)
+}
+
 export function createTree({ name, privacy }) {
   return client.post('/trees/', { name, privacy }).then((res) => res.data)
 }

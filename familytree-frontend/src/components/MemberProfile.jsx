@@ -3,13 +3,19 @@ import { Calendar, Edit, FileText, History, Image as ImageIcon, MapPin, Plus, Sa
 import { updatePerson } from '../api/persons'
 import { createLifeEvent, deleteLifeEvent, listLifeEvents } from '../api/lifeEvents'
 import { deleteMedia, listMedia, uploadMedia } from '../api/media'
+import { useTranslation } from '../i18n/useTranslation'
 
-function formatDate(dateString) {
-  if (!dateString) return null
-  return new Date(dateString).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-}
+const LOCALES = { ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' }
 
 export default function MemberProfile({ treeId, person, onClose, onEditRequest, onUpdated }) {
+  const { t, language } = useTranslation()
+  const locale = LOCALES[language]
+
+  function formatDate(dateString) {
+    if (!dateString) return null
+    return new Date(dateString).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })
+  }
+
   const [activeTab, setActiveTab] = useState('biography')
 
   const [bio, setBio] = useState('')
@@ -36,17 +42,16 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
     setShowAddEvent(false)
     setShowAddMedia(false)
     setError('')
-    listLifeEvents(treeId, person.id).then(setEvents).catch(() => setError('Не удалось загрузить хронологию'))
-    listMedia(treeId, person.id).then(setMedia).catch(() => setError('Не удалось загрузить медиа'))
+    listLifeEvents(treeId, person.id).then(setEvents).catch(() => setError(t('memberProfile.loadEventsError')))
+    listMedia(treeId, person.id).then(setMedia).catch(() => setError(t('memberProfile.loadMediaError')))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [treeId, person])
 
   if (!person) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-cream/40 text-ink/50 select-none">
         <History className="h-12 w-12 text-olive/20 mb-3" />
-        <p className="font-serif italic text-sm">
-          Выберите члена семьи на дереве, чтобы просмотреть биографию, хронологию и архив медиа.
-        </p>
+        <p className="font-serif italic text-sm">{t('memberProfile.emptyState')}</p>
       </div>
     )
   }
@@ -58,7 +63,7 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
       await updatePerson(treeId, person.id, { bio })
       onUpdated?.()
     } catch {
-      setError('Не удалось сохранить биографию (нужны права редактора)')
+      setError(t('memberProfile.bioError'))
     } finally {
       setSavingBio(false)
     }
@@ -79,7 +84,7 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
       setEventDesc('')
       setShowAddEvent(false)
     } catch {
-      setError('Не удалось добавить событие')
+      setError(t('memberProfile.eventAddError'))
     }
   }
 
@@ -88,7 +93,7 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
       await deleteLifeEvent(treeId, person.id, eventId)
       setEvents((prev) => prev.filter((e) => e.id !== eventId))
     } catch {
-      setError('Не удалось удалить событие')
+      setError(t('memberProfile.eventDeleteError'))
     }
   }
 
@@ -102,7 +107,7 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
       setMediaCaption('')
       setShowAddMedia(false)
     } catch {
-      setError('Не удалось загрузить файл')
+      setError(t('memberProfile.mediaUploadError'))
     }
   }
 
@@ -112,7 +117,7 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
       await deleteMedia(treeId, person.id, mediaId)
       setMedia((prev) => prev.filter((m) => m.id !== mediaId))
     } catch {
-      setError('Не удалось удалить файл')
+      setError(t('memberProfile.mediaDeleteError'))
     }
   }
 
@@ -124,7 +129,7 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-xs bg-ink/5 hover:bg-ink/15 text-ink/60 hover:text-ink p-1.5 rounded-full font-semibold cursor-pointer bg-transparent border-0 shadow-none"
-          title="Свернуть профиль"
+          title={t('memberProfile.collapse')}
         >
           &times;
         </button>
@@ -148,7 +153,7 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
                 <button
                   onClick={() => onEditRequest(person)}
                   className="p-1.5 hover:bg-ink/5 text-ink/55 hover:text-olive rounded transition cursor-pointer bg-transparent border-0 shadow-none"
-                  title="Редактировать"
+                  title={t('common.edit')}
                 >
                   <Edit className="h-3.5 w-3.5" />
                 </button>
@@ -158,12 +163,12 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
             <p className="text-xs text-ink/75 mt-1.5 space-y-0.5">
               <span className="flex items-center gap-1">
                 <Calendar className="h-3 w-3 shrink-0 opacity-60 text-olive" />
-                {formatDate(person.birth_date) || 'Дата рождения не указана'}
+                {formatDate(person.birth_date) || t('memberProfile.noBirthDate')}
                 {person.birth_place && <span className="opacity-75">({person.birth_place})</span>}
               </span>
               {person.death_date && (
                 <span className="flex items-center gap-1 text-ink/55 font-semibold mt-0.5">
-                  <MapPin className="h-3 w-3 shrink-0 opacity-50" /> Скончался(лась): {formatDate(person.death_date)}
+                  <MapPin className="h-3 w-3 shrink-0 opacity-50" /> {t('memberProfile.deceasedPrefix')}{formatDate(person.death_date)}
                 </span>
               )}
             </p>
@@ -173,9 +178,9 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
 
       <div className="flex border-b border-cream-border bg-cream text-xs shrink-0 select-none">
         {[
-          { key: 'biography', label: 'Биография', Icon: FileText },
-          { key: 'timeline', label: 'Хроника', Icon: History },
-          { key: 'media', label: 'Медиа', Icon: ImageIcon },
+          { key: 'biography', label: t('memberProfile.tabBio'), Icon: FileText },
+          { key: 'timeline', label: t('memberProfile.tabTimeline'), Icon: History },
+          { key: 'media', label: t('memberProfile.tabMedia'), Icon: ImageIcon },
         ].map(({ key, label, Icon }) => (
           <button
             key={key}
@@ -188,7 +193,7 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 text-ink bg-white">
+      <div className="flex-1 overflow-y-auto p-5 text-ink bg-cream-light">
         {error && (
           <p role="alert" className="text-rose-900 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-xs mb-3">
             {error}
@@ -201,7 +206,7 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               rows={8}
-              placeholder="Воспоминания, заметки о человеке…"
+              placeholder={t('memberProfile.bioPlaceholder')}
               className="w-full text-sm leading-relaxed bg-[#fcfaf6] p-3 text-ink border border-cream-border rounded-lg focus:outline-none focus:ring-1 focus:ring-olive"
             />
             <div className="flex justify-end">
@@ -210,7 +215,7 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
                 disabled={savingBio}
                 className="px-4 py-2 text-xs font-semibold bg-olive text-white rounded-md hover:bg-olive-700 shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-55"
               >
-                <Save className="h-3.5 w-3.5" /> {savingBio ? 'Сохраняем…' : 'Сохранить'}
+                <Save className="h-3.5 w-3.5" /> {savingBio ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </div>
@@ -219,13 +224,13 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
         {activeTab === 'timeline' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-cream-border pb-2">
-              <h3 className="font-serif font-semibold text-sm text-ink/80">Хронологическая лента</h3>
+              <h3 className="font-serif font-semibold text-sm text-ink/80">{t('memberProfile.timelineHeading')}</h3>
               {!showAddEvent && (
                 <button
                   onClick={() => setShowAddEvent(true)}
-                  className="px-2.5 py-1 text-[10px] font-bold border border-cream-border text-ink/70 hover:bg-cream-dark rounded-md transition flex items-center gap-0.5 cursor-pointer bg-white"
+                  className="px-2.5 py-1 text-[10px] font-bold border border-cream-border text-ink/70 hover:bg-cream-dark rounded-md transition flex items-center gap-0.5 cursor-pointer bg-cream-light"
                 >
-                  <Plus className="h-3 w-3 text-olive" /> Добавить веху
+                  <Plus className="h-3 w-3 text-olive" /> {t('memberProfile.addEvent')}
                 </button>
               )}
             </div>
@@ -235,23 +240,23 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
                 <input
                   type="text"
                   required
-                  placeholder="Название события"
+                  placeholder={t('memberProfile.eventTitlePlaceholder')}
                   value={eventTitle}
                   onChange={(e) => setEventTitle(e.target.value)}
-                  className="w-full p-1.5 border border-cream-border rounded bg-white text-xs focus:outline-none text-ink"
+                  className="w-full p-1.5 border border-cream-border rounded bg-cream-light text-xs focus:outline-none text-ink"
                 />
                 <input
                   type="date"
                   value={eventDate}
                   onChange={(e) => setEventDate(e.target.value)}
-                  className="w-full p-1.5 border border-cream-border rounded bg-white text-xs focus:outline-none text-ink"
+                  className="w-full p-1.5 border border-cream-border rounded bg-cream-light text-xs focus:outline-none text-ink"
                 />
                 <textarea
-                  placeholder="Описание"
+                  placeholder={t('common.descriptionPlaceholder')}
                   value={eventDesc}
                   onChange={(e) => setEventDesc(e.target.value)}
                   rows={2}
-                  className="w-full p-1.5 border border-cream-border rounded bg-white text-xs focus:outline-none text-ink"
+                  className="w-full p-1.5 border border-cream-border rounded bg-cream-light text-xs focus:outline-none text-ink"
                 />
                 <div className="flex justify-end gap-1.5 pt-1">
                   <button
@@ -259,29 +264,29 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
                     onClick={() => setShowAddEvent(false)}
                     className="px-2.5 py-1 text-[10px] text-ink/65 rounded cursor-pointer hover:bg-cream-dark bg-transparent border-0 shadow-none"
                   >
-                    Отмена
+                    {t('common.cancel')}
                   </button>
                   <button type="submit" className="px-3 py-1 text-[10px] font-semibold bg-olive text-white rounded cursor-pointer hover:bg-olive-700 shadow-xs">
-                    Сохранить веху
+                    {t('memberProfile.saveEvent')}
                   </button>
                 </div>
               </form>
             )}
 
             {events.length === 0 ? (
-              <p className="text-xs text-ink/50 italic py-4 text-center">Хронологических вех не зафиксировано.</p>
+              <p className="text-xs text-ink/50 italic py-4 text-center">{t('memberProfile.noEvents')}</p>
             ) : (
               <div className="relative border-l border-cream-border pl-4 ml-2 space-y-4">
                 {events.map((event) => (
                   <div key={event.id} className="relative text-xs">
-                    <div className="absolute -left-[21.5px] top-1 h-3 w-3 rounded-full bg-white border-2 border-olive shadow-xs" />
-                    <div className="bg-white border border-cream-border p-3.5 rounded-xl hover:border-olive/20 transition">
+                    <div className="absolute -left-[21.5px] top-1 h-3 w-3 rounded-full bg-cream-light border-2 border-olive shadow-xs" />
+                    <div className="bg-cream-light border border-cream-border p-3.5 rounded-xl hover:border-olive/20 transition">
                       <div className="flex items-center justify-between">
                         <span className="font-mono text-[10px] text-olive font-bold">{event.event_date}</span>
                         <button
                           onClick={() => handleDeleteEvent(event.id)}
                           className="p-1 text-ink/40 hover:text-red-700 rounded transition cursor-pointer bg-transparent border-0 shadow-none"
-                          title="Удалить событие"
+                          title={t('memberProfile.deleteEventTitle')}
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
@@ -299,13 +304,13 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
         {activeTab === 'media' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-cream-border pb-2">
-              <h3 className="font-serif font-semibold text-sm text-ink/80">Архив фото и документов</h3>
+              <h3 className="font-serif font-semibold text-sm text-ink/80">{t('memberProfile.mediaHeading')}</h3>
               {!showAddMedia && (
                 <button
                   onClick={() => setShowAddMedia(true)}
-                  className="px-2.5 py-1 text-[10px] font-bold border border-cream-border text-ink/70 hover:bg-cream-dark rounded-md transition flex items-center gap-0.5 cursor-pointer bg-white"
+                  className="px-2.5 py-1 text-[10px] font-bold border border-cream-border text-ink/70 hover:bg-cream-dark rounded-md transition flex items-center gap-0.5 cursor-pointer bg-cream-light"
                 >
-                  <Plus className="h-3 w-3 text-olive" /> Загрузить
+                  <Plus className="h-3 w-3 text-olive" /> {t('memberProfile.uploadButton')}
                 </button>
               )}
             </div>
@@ -320,10 +325,10 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
                 />
                 <input
                   type="text"
-                  placeholder="Подпись (необязательно)"
+                  placeholder={t('memberProfile.captionPlaceholder')}
                   value={mediaCaption}
                   onChange={(e) => setMediaCaption(e.target.value)}
-                  className="w-full p-1.5 border border-cream-border rounded bg-white text-xs focus:outline-none text-ink"
+                  className="w-full p-1.5 border border-cream-border rounded bg-cream-light text-xs focus:outline-none text-ink"
                 />
                 <div className="flex justify-end gap-1.5 pt-1 border-t border-cream-border">
                   <button
@@ -331,24 +336,24 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
                     onClick={() => setShowAddMedia(false)}
                     className="px-2.5 py-1 text-[11px] text-ink/60 rounded-md cursor-pointer hover:bg-cream-dark bg-transparent border-0 shadow-none"
                   >
-                    Отмена
+                    {t('common.cancel')}
                   </button>
                   <button type="submit" className="px-3.5 py-1 text-[11px] font-semibold bg-olive text-white rounded-md cursor-pointer hover:bg-olive-700 shadow-xs">
-                    Разместить в архив
+                    {t('memberProfile.uploadSubmit')}
                   </button>
                 </div>
               </form>
             )}
 
             {media.length === 0 ? (
-              <p className="text-xs text-ink/50 italic py-4 text-center">Файлов пока нет.</p>
+              <p className="text-xs text-ink/50 italic py-4 text-center">{t('memberProfile.noFiles')}</p>
             ) : (
               <div className="grid grid-cols-2 gap-3.5">
                 {media.map((item) => (
                   <div
                     key={item.id}
                     onClick={() => isImage(item.file) && setPreviewUrl(item.file)}
-                    className="bg-white border border-cream-border p-2 rounded-xl cursor-pointer hover:shadow-sm transition-all relative group"
+                    className="bg-cream-light border border-cream-border p-2 rounded-xl cursor-pointer hover:shadow-sm transition-all relative group"
                   >
                     {isImage(item.file) ? (
                       <img src={item.file} alt={item.caption} className="h-28 w-full object-cover rounded-lg bg-cream" />
@@ -360,7 +365,7 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
                         onClick={(e) => e.stopPropagation()}
                         className="h-28 w-full flex items-center justify-center rounded-lg bg-cream text-[10px] text-ink/50 text-center px-2 no-underline"
                       >
-                        {item.caption || 'файл'}
+                        {item.caption || t('memberProfile.fileFallback')}
                       </a>
                     )}
                     <div className="mt-1.5 p-0.5 text-xs text-left">
@@ -368,8 +373,8 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
                     </div>
                     <button
                       onClick={(e) => handleDeleteMedia(item.id, e)}
-                      className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-1.5 bg-white/95 text-red-700 hover:text-white hover:bg-red-700 rounded shadow-xs transition duration-150 cursor-pointer border-0"
-                      title="Удалить"
+                      className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-1.5 bg-cream-light/95 text-red-700 hover:text-white hover:bg-red-700 rounded shadow-xs transition duration-150 cursor-pointer border-0"
+                      title={t('common.delete')}
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -388,9 +393,9 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
               onClick={() => setPreviewUrl(null)}
               className="absolute -top-10 right-0 text-white hover:text-gray-300 font-bold text-lg p-2 cursor-pointer flex items-center gap-1 bg-black/50 rounded px-2 border-0"
             >
-              &times; Закрыть
+              &times; {t('common.close')}
             </button>
-            <img src={previewUrl} alt="Просмотр" className="max-h-[80vh] mx-auto object-contain rounded-lg border border-white/10 shadow-2xl" />
+            <img src={previewUrl} alt={t('memberProfile.previewAlt')} className="max-h-[80vh] mx-auto object-contain rounded-lg border border-white/10 shadow-2xl" />
           </div>
         </div>
       )}

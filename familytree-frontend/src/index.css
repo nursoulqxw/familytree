@@ -21,6 +21,30 @@
   --font-serif: 'Libre Baskerville', Georgia, Cambria, 'Times New Roman', Times, serif;
 }
 
+/* Тёмная тема — переопределяет те же токены, что заданы в @theme выше. Тайлвиндовские классы
+ * (bg-cream, text-ink, border-cream-border и т.п.) читают эти CSS-переменные во время выполнения,
+ * поэтому одного этого блока достаточно — компоненты трогать не нужно. Переключается добавлением
+ * класса .dark на <html> (см. App.jsx + store/uiStore.js). bg-white в компонентах намеренно заменён
+ * на bg-cream-light, чтобы карточки/инпуты тоже подхватывали тёмную тему. */
+:root.dark {
+  --color-olive: #c2c28f;
+  --color-olive-50: #2a2a20;
+  --color-olive-100: #33331f;
+  --color-olive-200: #43432c;
+  --color-olive-700: #d9d9ad;
+  --color-olive-800: #e8e8c4;
+
+  --color-cream: #1a1a15;
+  --color-cream-light: #242420;
+  --color-cream-dark: #2e2e28;
+  --color-cream-darker: #38382f;
+
+  --color-ink: #ede8dc;
+  --color-cream-border: #3a3a30;
+  --color-cream-line: #46453a;
+}
+
 body {
   @apply bg-cream text-ink font-sans antialiased;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }

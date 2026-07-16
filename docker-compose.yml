@@ -25,29 +25,39 @@ services:
       - "6379:6379"
 
   backend:
-    build: .
+    build: ./familytree-backend
     container_name: ft_backend
     restart: always
     # миграции гоняются при каждом старте контейнера — на этапе build ещё нет доступа к БД
     command: sh -c "python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000"
-    ports:
-      - "8000:8000"
+    # SECRET_KEY/DEBUG и остальное берутся из familytree-backend/.env (см. SETUP_LOCAL.md);
+    # DB_*/ALLOWED_HOSTS ниже переопределяют его же значения — .env настроен под локальный
+    # Postgres на localhost, а тут бэкенд должен идти в контейнер db
+    env_file:
+      - ./familytree-backend/.env
     environment:
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in familytree-backend/.env}
-      DEBUG: ${DEBUG:-False}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
-      # значения db-контейнера выше, а не из .env — .env обычно настроен под локальный
-      # Postgres на localhost (см. SETUP_LOCAL.md), а тут бэкенд общается с контейнером db
       DB_NAME: familytree
       DB_USER: devuser
       DB_PASSWORD: devpassword
       DB_HOST: db
       DB_PORT: 5432
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend,frontend}
+    ports:
+      - "8000:8000"
     volumes:
       - media_data:/app/media
     depends_on:
       db:
         condition: service_healthy
+
+  frontend:
+    build: ./familytree-frontend
+    container_name: ft_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:

@@ -21,6 +21,14 @@ npm run lint    # oxlint
 npm run build   # production-сборка
 ```
 
+## Docker
+
+`Dockerfile` — многоступенчатая сборка: `npm run build` в Node-контейнере, затем статика (`dist/`) отдаётся
+через `nginx` (`nginx.conf`). Nginx же проксирует `/api/*` и `/media/*` на бэкенд — тот же контракт, что и у
+Vite dev-прокси, только имя хоста бэкенда берётся из Docker-сети (`backend`), а не `localhost`. Отдельно этот
+контейнер обычно не запускают — см. [`../DEPLOY.md`](../DEPLOY.md), там `docker-compose.yml` поднимает фронт
+вместе с бэкендом, Postgres и Redis одной командой.
+
 ## Дизайн-система
 
 - Палитра `olive`/`cream`/`ink` и шрифты (`Libre Baskerville` для заголовков, `Inter` для текста) заданы в

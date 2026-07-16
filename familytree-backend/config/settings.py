@@ -36,13 +36,17 @@ DEBUG = os.environ.get('DEBUG') == 'True'
 # прод-деплой (Django требует непустой ALLOWED_HOSTS при DEBUG=False).
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
 
+# Тот же паттерн, что у ALLOWED_HOSTS — список через запятую в .env (например
+# CORS_ALLOWED_ORIGINS=https://myapp.vercel.app), дефолт покрывает только локальную разработку.
+# Раньше было захардкожено на localhost:3000/8000 — на реальном домене фронтенд не смог бы
+# достучаться до API (браузер блокировал бы запросы).
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:8000",
+    o.strip() for o in os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:8000').split(',')
+    if o.strip()
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
+    o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost:3000').split(',') if o.strip()
 ]
 
 REST_FRAMEWORK = {

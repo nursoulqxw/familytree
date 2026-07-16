@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Maximize, Search, Sliders, UserPlus, Users, ZoomIn, ZoomOut } from 'lucide-react'
+import { useTranslation } from '../i18n/useTranslation'
 
+// Внутренний словарь типов связи — на нём завязан FamilyTreeGraph.test.jsx (ожидает именно
+// этот объект), поэтому формулировки здесь всегда ru; переведённые подписи для UI собираются
+// на лету через t('rel.<key>') там, где они реально показываются (RelationshipModal.jsx).
 export const RELATIONSHIP_LABELS = {
   parent: 'Родитель',
   child: 'Ребёнок',
@@ -119,6 +123,7 @@ export default function FamilyTreeGraph({
   searchQuery,
   setSearchQuery,
 }) {
+  const { t } = useTranslation()
   const [zoom, setZoom] = useState(0.9)
   const [pan, setPan] = useState({ x: 120, y: 40 })
   const [isPanning, setIsPanning] = useState(false)
@@ -358,17 +363,17 @@ export default function FamilyTreeGraph({
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-ink/40" />
           <input
             type="text"
-            placeholder="Поиск по имени, отчеству или месту..."
+            placeholder={t('graph.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white text-ink text-sm pl-9 pr-4 py-2 rounded-lg border border-cream-border focus:outline-none focus:ring-1 focus:ring-olive"
+            className="w-full bg-cream-light text-ink text-sm pl-9 pr-4 py-2 rounded-lg border border-cream-border focus:outline-none focus:ring-1 focus:ring-olive"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
               className="absolute right-3 top-2.5 text-xs font-semibold text-ink/50 hover:text-ink cursor-pointer bg-transparent border-0 shadow-none p-0"
             >
-              Сброс
+              {t('graph.resetSearch')}
             </button>
           )}
         </div>
@@ -378,28 +383,28 @@ export default function FamilyTreeGraph({
             onClick={() => setShowAddForm(true)}
             className="px-4 py-2 text-xs font-medium bg-olive text-white rounded-lg hover:bg-olive-700 transition shadow-xs flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
           >
-            <UserPlus className="h-3.5 w-3.5" /> Добавить родственника
+            <UserPlus className="h-3.5 w-3.5" /> {t('graph.addRelative')}
           </button>
 
           {onAddRelationship && persons.length >= 2 && (
             <button
               onClick={onAddRelationship}
-              className="px-4 py-2 text-xs font-medium border border-cream-border bg-white text-ink/80 rounded-lg hover:bg-cream-dark transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+              className="px-4 py-2 text-xs font-medium border border-cream-border bg-cream-light text-ink/80 rounded-lg hover:bg-cream-dark transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
             >
-              <Users className="h-3.5 w-3.5 text-olive" /> Добавить связь
+              <Users className="h-3.5 w-3.5 text-olive" /> {t('common.addRelationship')}
             </button>
           )}
 
           <div className="h-4 w-px bg-cream-border mx-1" />
 
           <div className="flex bg-cream-dark rounded-lg p-0.5 border border-cream-border shrink-0">
-            <button onClick={handleZoomOut} title="Уменьшить" className="p-1.5 text-ink/70 hover:text-ink rounded-md hover:bg-ink/5 cursor-pointer bg-transparent border-0 shadow-none">
+            <button onClick={handleZoomOut} title={t('graph.zoomOut')} className="p-1.5 text-ink/70 hover:text-ink rounded-md hover:bg-ink/5 cursor-pointer bg-transparent border-0 shadow-none">
               <ZoomOut className="h-3.5 w-3.5" />
             </button>
-            <button onClick={handleZoomReset} title="Сбросить вид" className="p-1.5 text-ink/70 hover:text-ink rounded-md hover:bg-ink/5 cursor-pointer bg-transparent border-0 shadow-none">
+            <button onClick={handleZoomReset} title={t('graph.zoomReset')} className="p-1.5 text-ink/70 hover:text-ink rounded-md hover:bg-ink/5 cursor-pointer bg-transparent border-0 shadow-none">
               <Maximize className="h-3.5 w-3.5" />
             </button>
-            <button onClick={handleZoomIn} title="Увеличить" className="p-1.5 text-ink/70 hover:text-ink rounded-md hover:bg-ink/5 cursor-pointer bg-transparent border-0 shadow-none">
+            <button onClick={handleZoomIn} title={t('graph.zoomIn')} className="p-1.5 text-ink/70 hover:text-ink rounded-md hover:bg-ink/5 cursor-pointer bg-transparent border-0 shadow-none">
               <ZoomIn className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -420,12 +425,12 @@ export default function FamilyTreeGraph({
           style={{ backgroundImage: 'radial-gradient(#5a5a40 1px, transparent 1px)', backgroundSize: '24px 24px' }}
         />
 
-        <div className="absolute left-4 bottom-4 bg-white/90 backdrop-blur-xs border border-cream-border px-3 py-1.5 rounded-md text-xs font-mono text-ink/70 shadow-xs select-none pointer-events-none">
-          Зум: {Math.round(zoom * 100)}%
+        <div className="absolute left-4 bottom-4 bg-cream-light/90 backdrop-blur-xs border border-cream-border px-3 py-1.5 rounded-md text-xs font-mono text-ink/70 shadow-xs select-none pointer-events-none">
+          {t('graph.zoomLabel', { n: Math.round(zoom * 100) })}
         </div>
 
-        <div className="absolute right-4 bottom-4 bg-white/90 backdrop-blur-xs border border-cream-border px-3 py-1.5 rounded-md text-[10px] text-ink/60 shadow-xs select-none pointer-events-none flex items-center gap-1 max-w-xs">
-          <Sliders className="h-3 w-3 shrink-0 text-olive" /> Зажмите карточку, чтобы переместить её вручную.
+        <div className="absolute right-4 bottom-4 bg-cream-light/90 backdrop-blur-xs border border-cream-border px-3 py-1.5 rounded-md text-[10px] text-ink/60 shadow-xs select-none pointer-events-none flex items-center gap-1 max-w-xs">
+          <Sliders className="h-3 w-3 shrink-0 text-olive" /> {t('graph.dragHint')}
         </div>
 
         <div
@@ -459,7 +464,7 @@ export default function FamilyTreeGraph({
                         ? 'bg-[#fcfaf2] border-olive ring-2 ring-olive/20 z-40'
                         : isMatch
                           ? 'bg-amber-50/50 border-amber-500 ring-2 ring-amber-500/20 z-30'
-                          : 'bg-white border-cream-border hover:border-olive/50 z-10'
+                          : 'bg-cream-light border-cream-border hover:border-olive/50 z-10'
                     }`}
                   onClick={(e) => {
                     e.stopPropagation()
@@ -471,7 +476,7 @@ export default function FamilyTreeGraph({
                   }}
                 >
                   <div className="absolute top-1.5 right-2.5 text-[8px] font-mono text-ink/35 uppercase select-none">
-                    Пок. {levels[id] !== undefined ? levels[id] + 1 : '?'}
+                    {t('graph.generationBadge', { n: levels[id] !== undefined ? levels[id] + 1 : '?' })}
                   </div>
 
                   <div className="flex items-center gap-2 pr-6">
@@ -491,7 +496,7 @@ export default function FamilyTreeGraph({
 
                   <div className="text-[10px] font-mono font-medium text-ink/60 flex items-center justify-between mt-2 pt-1.5 border-t border-cream-border/60">
                     <span>{formatYear(person.birth_date)}</span>
-                    <span className="opacity-40">{isAlive ? '— наст.' : `— ${formatYear(person.death_date)}`}</span>
+                    <span className="opacity-40">{isAlive ? t('graph.present') : `— ${formatYear(person.death_date)}`}</span>
                   </div>
                 </div>
               )
@@ -505,7 +510,7 @@ export default function FamilyTreeGraph({
           <div className="bg-cream border border-cream-border w-full max-w-lg rounded-2xl shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="bg-olive px-5 py-4 text-white flex justify-between items-center">
               <h3 className="font-serif font-black text-lg flex items-center gap-2">
-                <Users className="h-5 w-5" /> Добавить члена семьи
+                <Users className="h-5 w-5" /> {t('graph.addMemberHeader')}
               </h3>
               <button
                 onClick={() => setShowAddForm(false)}
@@ -520,13 +525,13 @@ export default function FamilyTreeGraph({
                 <div className="bg-cream-dark border border-cream-border rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
                   <div>
                     <label htmlFor="new-member-connect-to" className="block text-xs font-semibold text-ink/70 mb-1">
-                      Связать с родственником:
+                      {t('graph.connectToLabel')}
                     </label>
                     <select
                       id="new-member-connect-to"
                       value={connectToId}
                       onChange={(e) => setConnectToId(e.target.value)}
-                      className="w-full text-xs bg-white text-ink rounded-md border border-cream-border p-1.5 focus:outline-none"
+                      className="w-full text-xs bg-cream-light text-ink rounded-md border border-cream-border p-1.5 focus:outline-none"
                     >
                       {persons.map((p) => (
                         <option key={p.id} value={p.id}>
@@ -538,18 +543,18 @@ export default function FamilyTreeGraph({
 
                   <div>
                     <label htmlFor="new-member-rel-type" className="block text-xs font-semibold text-ink/70 mb-1">
-                      Степень родства:
+                      {t('graph.relationDegreeLabel')}
                     </label>
                     <select
                       id="new-member-rel-type"
                       value={newRelType}
                       onChange={(e) => setNewRelType(e.target.value)}
-                      className="w-full text-xs bg-white text-ink rounded-md border border-cream-border p-1.5 focus:outline-none"
+                      className="w-full text-xs bg-cream-light text-ink rounded-md border border-cream-border p-1.5 focus:outline-none"
                     >
-                      <option value="CHILD">Ребёнок для выбранного</option>
-                      <option value="PARENT">Родитель для выбранного</option>
-                      <option value="SPOUSE">Супруг(а) выбранного</option>
-                      <option value="SIBLING">Брат/сестра выбранного</option>
+                      <option value="CHILD">{t('graph.optChild')}</option>
+                      <option value="PARENT">{t('graph.optParent')}</option>
+                      <option value="SPOUSE">{t('graph.optSpouse')}</option>
+                      <option value="SIBLING">{t('graph.optSibling')}</option>
                     </select>
                   </div>
                 </div>
@@ -558,7 +563,7 @@ export default function FamilyTreeGraph({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="new-member-last-name" className="block text-xs font-semibold text-ink/70 mb-0.5">
-                    Фамилия <span className="text-red-500">*</span>
+                    {t('common.lastName')} <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="new-member-last-name"
@@ -566,12 +571,12 @@ export default function FamilyTreeGraph({
                     required
                     value={newLastName}
                     onChange={(e) => setNewLastName(e.target.value)}
-                    className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-olive text-ink"
+                    className="w-full text-sm bg-cream-light rounded-md border border-cream-border px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-olive text-ink"
                   />
                 </div>
                 <div>
                   <label htmlFor="new-member-first-name" className="block text-xs font-semibold text-ink/70 mb-0.5">
-                    Имя <span className="text-red-500">*</span>
+                    {t('common.firstName')} <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="new-member-first-name"
@@ -579,7 +584,7 @@ export default function FamilyTreeGraph({
                     required
                     value={newFirstName}
                     onChange={(e) => setNewFirstName(e.target.value)}
-                    className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-olive text-ink"
+                    className="w-full text-sm bg-cream-light rounded-md border border-cream-border px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-olive text-ink"
                   />
                 </div>
               </div>
@@ -587,29 +592,29 @@ export default function FamilyTreeGraph({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="new-member-patronymic" className="block text-xs font-semibold text-ink/70 mb-0.5">
-                    Отчество
+                    {t('common.patronymic')}
                   </label>
                   <input
                     id="new-member-patronymic"
                     type="text"
                     value={newPatronymic}
                     onChange={(e) => setNewPatronymic(e.target.value)}
-                    className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-1.5 focus:outline-none text-ink"
+                    className="w-full text-sm bg-cream-light rounded-md border border-cream-border px-3 py-1.5 focus:outline-none text-ink"
                   />
                 </div>
                 <div>
                   <label htmlFor="new-member-gender" className="block text-xs font-semibold text-ink/70 mb-0.5">
-                    Пол
+                    {t('common.gender')}
                   </label>
                   <select
                     id="new-member-gender"
                     value={newGender}
                     onChange={(e) => setNewGender(e.target.value)}
-                    className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-1.5 focus:outline-none text-ink"
+                    className="w-full text-sm bg-cream-light rounded-md border border-cream-border px-3 py-1.5 focus:outline-none text-ink"
                   >
-                    <option value="">Не указан</option>
-                    <option value="M">Мужской</option>
-                    <option value="F">Женский</option>
+                    <option value="">{t('common.genderUnset')}</option>
+                    <option value="M">{t('common.genderMale')}</option>
+                    <option value="F">{t('common.genderFemale')}</option>
                   </select>
                 </div>
               </div>
@@ -617,26 +622,26 @@ export default function FamilyTreeGraph({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="new-member-birth-date" className="block text-xs font-semibold text-ink/70 mb-0.5">
-                    Дата рождения
+                    {t('common.birthDate')}
                   </label>
                   <input
                     id="new-member-birth-date"
                     type="date"
                     value={newBirthDate}
                     onChange={(e) => setNewBirthDate(e.target.value)}
-                    className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-1.5 focus:outline-none text-ink"
+                    className="w-full text-sm bg-cream-light rounded-md border border-cream-border px-3 py-1.5 focus:outline-none text-ink"
                   />
                 </div>
                 <div>
                   <label htmlFor="new-member-birth-place" className="block text-xs font-semibold text-ink/70 mb-0.5">
-                    Место рождения
+                    {t('common.birthPlace')}
                   </label>
                   <input
                     id="new-member-birth-place"
                     type="text"
                     value={newBirthPlace}
                     onChange={(e) => setNewBirthPlace(e.target.value)}
-                    className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-1.5 focus:outline-none text-ink"
+                    className="w-full text-sm bg-cream-light rounded-md border border-cream-border px-3 py-1.5 focus:outline-none text-ink"
                   />
                 </div>
               </div>
@@ -647,10 +652,10 @@ export default function FamilyTreeGraph({
                   onClick={() => setShowAddForm(false)}
                   className="px-4 py-2 text-xs font-medium text-ink/70 hover:bg-cream-dark rounded-md cursor-pointer bg-transparent border-0 shadow-none"
                 >
-                  Отмена
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" className="px-4 py-2 text-xs font-medium bg-olive hover:bg-olive-700 text-white rounded-md shadow-xs cursor-pointer">
-                  Внедрить в древо
+                  {t('graph.submitAdd')}
                 </button>
               </div>
             </form>

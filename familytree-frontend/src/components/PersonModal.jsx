@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { createPerson, deletePerson, updatePerson } from '../api/persons'
+import { useTranslation } from '../i18n/useTranslation'
 import Modal from './Modal'
 import PersonForm from './PersonForm'
 
 export default function PersonModal({ treeId, person, onClose, onSaved, onDeleted }) {
+  const { t } = useTranslation()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -20,28 +22,28 @@ export default function PersonModal({ treeId, person, onClose, onSaved, onDelete
       }
       onSaved()
     } catch {
-      setError('Не удалось сохранить человека')
+      setError(t('personModal.saveError'))
     } finally {
       setSubmitting(false)
     }
   }
 
   async function handleDelete(personId) {
-    if (!window.confirm('Удалить этого человека? Все связи с ним также будут удалены.')) return
+    if (!window.confirm(t('personModal.deleteConfirm'))) return
     setSubmitting(true)
     setError('')
     try {
       await deletePerson(treeId, personId)
       onDeleted()
     } catch {
-      setError('Не удалось удалить')
+      setError(t('personModal.deleteError'))
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <Modal title={isEdit ? 'Редактировать человека' : 'Добавить человека'} onClose={onClose}>
+    <Modal title={isEdit ? t('personModal.editTitle') : t('personModal.addTitle')} onClose={onClose}>
       {error && <p role="alert">{error}</p>}
       <PersonForm
         initialPerson={person}

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Globe, Link as LinkIcon, Lock, Pencil, TreePine, X } from 'lucide-react'
-
-const PRIVACY = {
-  private: { label: 'Закрытое', icon: Lock },
-  link: { label: 'По ссылке', icon: LinkIcon },
-  public: { label: 'Открытое', icon: Globe },
-}
+import { useTranslation } from '../i18n/useTranslation'
 
 export default function TreeCard({ tree, onDelete, onRename }) {
+  const { t } = useTranslation()
+  const PRIVACY = {
+    private: { label: t('privacy.private'), icon: Lock },
+    link: { label: t('privacy.link'), icon: LinkIcon },
+    public: { label: t('privacy.public'), icon: Globe },
+  }
   const privacy = PRIVACY[tree.privacy] ?? { label: tree.privacy, icon: Lock }
   const PrivacyIcon = privacy.icon
 
@@ -43,7 +44,7 @@ export default function TreeCard({ tree, onDelete, onRename }) {
   }
 
   return (
-    <div className="relative border border-cream-border rounded-2xl p-5 bg-white shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-olive/40 transition-all group">
+    <div className="relative border border-cream-border rounded-2xl p-5 bg-cream-light shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-olive/40 transition-all group">
       <Link to={`/trees/${tree.id}`} className="no-underline block">
         <div className="h-11 w-11 rounded-xl bg-olive/10 text-olive flex items-center justify-center mb-3">
           <TreePine className="h-5.5 w-5.5" />
@@ -67,7 +68,7 @@ export default function TreeCard({ tree, onDelete, onRename }) {
             type="button"
             onClick={saveEdit}
             disabled={saving}
-            title="Сохранить"
+            title={t('common.save')}
             className="p-1.5 text-olive hover:bg-olive/10 rounded-md cursor-pointer bg-transparent border-0 shadow-none disabled:opacity-50"
           >
             <Check className="h-4 w-4" />
@@ -76,7 +77,7 @@ export default function TreeCard({ tree, onDelete, onRename }) {
             type="button"
             onClick={cancelEdit}
             disabled={saving}
-            title="Отмена"
+            title={t('common.cancel')}
             className="p-1.5 text-ink/50 hover:bg-cream-dark rounded-md cursor-pointer bg-transparent border-0 shadow-none"
           >
             <X className="h-4 w-4" />
@@ -91,7 +92,7 @@ export default function TreeCard({ tree, onDelete, onRename }) {
             <button
               type="button"
               onClick={() => setEditing(true)}
-              title="Переименовать"
+              title={t('common.rename')}
               className="p-1 text-ink/30 hover:text-olive opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer bg-transparent border-0 shadow-none shrink-0"
             >
               <Pencil className="h-3.5 w-3.5" />
@@ -107,10 +108,10 @@ export default function TreeCard({ tree, onDelete, onRename }) {
         <div>
           <button
             type="button"
-            className="text-xs font-medium text-rose-700 border border-rose-200 bg-white hover:bg-rose-50 px-3 py-1.5 rounded-lg cursor-pointer"
+            className="text-xs font-medium text-rose-700 border border-rose-200 bg-cream-light hover:bg-rose-50 px-3 py-1.5 rounded-lg cursor-pointer"
             onClick={() => onDelete(tree.id)}
           >
-            Удалить
+            {t('common.delete')}
           </button>
         </div>
       )}

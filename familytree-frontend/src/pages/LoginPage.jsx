@@ -3,9 +3,11 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { BookOpen } from 'lucide-react'
 import { login } from '../api/auth'
 import BrandMark from '../components/BrandMark'
+import { useTranslation } from '../i18n/useTranslation'
 import { useAuthStore } from '../store/authStore'
 
 export default function LoginPage() {
+  const { t } = useTranslation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -25,7 +27,7 @@ export default function LoginPage() {
       const redirectTo = location.state?.from?.pathname ?? '/dashboard'
       navigate(redirectTo, { replace: true })
     } catch {
-      setError('Неверный логин или пароль')
+      setError(t('login.error'))
     } finally {
       setSubmitting(false)
     }
@@ -36,13 +38,14 @@ export default function LoginPage() {
       <div className="relative bg-olive text-white p-10 md:p-14 flex flex-col justify-between overflow-hidden">
         <div className="flex items-center gap-3 font-serif text-xl font-black relative z-10">
           <BrandMark size={32} />
-          Родовое древо
+          {t('brand.name')}
         </div>
         <p className="font-serif text-3xl md:text-4xl leading-snug max-w-md relative z-10">
-          Каждая семья — <span className="text-olive-100">своя история</span>. Сохраните её для тех, кто придёт
-          после вас.
+          {t('login.heroPrefix')}
+          <span className="text-olive-100">{t('login.heroHighlight')}</span>
+          {t('login.heroSuffix')}
         </p>
-        <p className="text-sm opacity-80 relative z-10">Родословные, фотографии и события — в одном месте.</p>
+        <p className="text-sm opacity-80 relative z-10">{t('login.heroFoot')}</p>
         <div className="absolute -bottom-24 -right-16 w-96 h-96 rounded-full bg-white/5" />
       </div>
 
@@ -51,13 +54,13 @@ export default function LoginPage() {
           <div className="h-10 w-10 bg-olive text-white rounded-lg flex items-center justify-center shadow-xs mb-5 md:hidden">
             <BookOpen className="h-5.5 w-5.5" />
           </div>
-          <h1 className="font-serif font-black text-2xl text-ink mb-1">С возвращением</h1>
-          <p className="text-ink/60 text-sm mb-7">Войдите, чтобы продолжить работу над деревом</p>
+          <h1 className="font-serif font-black text-2xl text-ink mb-1">{t('login.title')}</h1>
+          <p className="text-ink/60 text-sm mb-7">{t('login.subtitle')}</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-xs font-semibold text-ink/70 mb-1">
-                Имя пользователя
+                {t('common.username')}
               </label>
               <input
                 id="username"
@@ -65,13 +68,13 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-olive text-ink"
+                className="w-full text-sm bg-cream-light rounded-md border border-cream-border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-olive text-ink"
               />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-xs font-semibold text-ink/70 mb-1">
-                Пароль
+                {t('common.password')}
               </label>
               <input
                 id="password"
@@ -80,7 +83,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full text-sm bg-white rounded-md border border-cream-border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-olive text-ink"
+                className="w-full text-sm bg-cream-light rounded-md border border-cream-border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-olive text-ink"
               />
             </div>
 
@@ -95,14 +98,14 @@ export default function LoginPage() {
               disabled={submitting}
               className="w-full px-4 py-2.5 text-sm font-semibold bg-olive text-white rounded-lg hover:bg-olive-700 transition shadow-xs cursor-pointer disabled:opacity-55"
             >
-              {submitting ? 'Входим…' : 'Войти'}
+              {submitting ? t('login.submitting') : t('common.login')}
             </button>
           </form>
 
           <p className="text-sm text-ink/70 mt-6">
-            Нет аккаунта?{' '}
+            {t('login.noAccount')}
             <Link to="/register" className="font-semibold text-olive hover:underline">
-              Зарегистрироваться
+              {t('common.register')}
             </Link>
           </p>
         </div>

@@ -11,6 +11,7 @@ import MemberProfile from '../components/MemberProfile'
 import Navbar from '../components/Navbar'
 import PersonModal from '../components/PersonModal'
 import RelationshipModal from '../components/RelationshipModal'
+import { useTranslation } from '../i18n/useTranslation'
 
 // Направление связи из формы "Добавить родственника" в API createRelationship(person_from, person_to, type)
 function relationshipArgsFor(relType, newPersonId, connectToId) {
@@ -31,6 +32,7 @@ function relationshipArgsFor(relType, newPersonId, connectToId) {
 }
 
 export default function TreeDetailPage() {
+  const { t } = useTranslation()
   const { treeId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const [tree, setTree] = useState(null)
@@ -51,10 +53,11 @@ export default function TreeDetailPage() {
       const data = await getTree(treeId)
       setTree(data)
     } catch {
-      setError('Не удалось загрузить дерево')
+      setError(t('treeDetail.loadError'))
     } finally {
       setLoading(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [treeId])
 
   useEffect(() => {
@@ -85,7 +88,7 @@ export default function TreeDetailPage() {
       setSelectedId(created.id)
       await load()
     } catch {
-      setError('Не удалось добавить человека (нужны права редактора)')
+      setError(t('treeDetail.addPersonError'))
     }
   }
 
@@ -111,13 +114,13 @@ export default function TreeDetailPage() {
   }
 
   async function handleEdgeClick(relationshipId) {
-    if (!window.confirm('Удалить эту связь?')) return
+    if (!window.confirm(t('treeDetail.confirmDeleteRel'))) return
     setError('')
     try {
       await deleteRelationship(treeId, relationshipId)
       await load()
     } catch {
-      setError('Не удалось удалить связь')
+      setError(t('treeDetail.deleteRelError'))
     }
   }
 
@@ -128,21 +131,21 @@ export default function TreeDetailPage() {
           to="/dashboard"
           className="text-sm text-ink/70 hover:text-olive no-underline px-3 py-1.5 rounded-lg hover:bg-cream-dark"
         >
-          ← Мои деревья
+          {t('common.backToDashboard')}
         </Link>
         <Link
           to={`/trees/${treeId}/timeline`}
           className="text-sm text-ink/70 hover:text-olive no-underline px-3 py-1.5 rounded-lg hover:bg-cream-dark flex items-center gap-1.5"
         >
-          <Clock className="h-3.5 w-3.5" /> Хронология
+          <Clock className="h-3.5 w-3.5" /> {t('common.timeline')}
         </Link>
       </Navbar>
 
       <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
         {loading ? (
-          <div className="col-span-12 flex flex-col items-center justify-center min-h-[400px] bg-white rounded-2xl border border-cream-border shadow-xs">
+          <div className="col-span-12 flex flex-col items-center justify-center min-h-[400px] bg-cream-light rounded-2xl border border-cream-border shadow-xs">
             <RefreshCw className="h-8 w-8 text-olive animate-spin mb-3" />
-            <p className="font-serif italic text-sm text-ink/60">Загружаем родословное дерево…</p>
+            <p className="font-serif italic text-sm text-ink/60">{t('treeDetail.loadingText')}</p>
           </div>
         ) : error && !tree ? (
           <div className="col-span-12">
@@ -152,7 +155,7 @@ export default function TreeDetailPage() {
           </div>
         ) : (
           <>
-            <section className="lg:col-span-8 bg-white border border-cream-border rounded-[32px] shadow-xs overflow-hidden flex flex-col h-[720px] lg:h-auto min-h-[500px]">
+            <section className="lg:col-span-8 bg-cream-light border border-cream-border rounded-[32px] shadow-xs overflow-hidden flex flex-col h-[720px] lg:h-auto min-h-[500px]">
               <div className="px-5 pt-4">
                 <h1 className="font-serif font-black text-xl text-ink">{tree.name}</h1>
               </div>
@@ -175,7 +178,7 @@ export default function TreeDetailPage() {
             </section>
 
             <section className="lg:col-span-4 flex flex-col gap-6 lg:max-h-[calc(100vh-140px)] lg:overflow-y-auto pr-1 min-w-0">
-              <div className="bg-white border border-cream-border rounded-[32px] shadow-xs overflow-hidden h-[500px] flex flex-col shrink-0">
+              <div className="bg-cream-light border border-cream-border rounded-[32px] shadow-xs overflow-hidden h-[500px] flex flex-col shrink-0">
                 <MemberProfile
                   treeId={treeId}
                   person={selectedPerson}
@@ -190,16 +193,16 @@ export default function TreeDetailPage() {
                   <button
                     onClick={() => setSidebarTab('activity')}
                     className={`flex-1 py-2 text-center font-medium rounded-lg transition-all cursor-pointer flex justify-center items-center gap-1 bg-transparent border-0 shadow-none
-                      ${sidebarTab === 'activity' ? 'bg-white text-olive shadow-xs font-semibold' : 'text-ink/65 hover:text-ink'}`}
+                      ${sidebarTab === 'activity' ? 'bg-cream-light text-olive shadow-xs font-semibold' : 'text-ink/65 hover:text-ink'}`}
                   >
-                    <Activity className="h-3.5 w-3.5" /> Журнал
+                    <Activity className="h-3.5 w-3.5" /> {t('common.journal')}
                   </button>
                   <button
                     onClick={() => setSidebarTab('invite')}
                     className={`flex-1 py-2 text-center font-medium rounded-lg transition-all cursor-pointer flex justify-center items-center gap-1 bg-transparent border-0 shadow-none
-                      ${sidebarTab === 'invite' ? 'bg-white text-olive shadow-xs font-semibold' : 'text-ink/65 hover:text-ink'}`}
+                      ${sidebarTab === 'invite' ? 'bg-cream-light text-olive shadow-xs font-semibold' : 'text-ink/65 hover:text-ink'}`}
                   >
-                    <Share2 className="h-3.5 w-3.5" /> Доступ и инвайты
+                    <Share2 className="h-3.5 w-3.5" /> {t('common.accessInvites')}
                   </button>
                 </div>
 

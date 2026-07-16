@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { Check, KeyRound, User } from 'lucide-react'
 import { changePassword, fetchProfile, updateProfile } from '../api/auth'
 import Navbar from '../components/Navbar'
+import { useTranslation } from '../i18n/useTranslation'
 
 const inputClass =
-  'w-full text-sm bg-white rounded-md border border-cream-border px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-olive text-ink'
+  'w-full text-sm bg-cream-light rounded-md border border-cream-border px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-olive text-ink'
 const labelClass = 'block text-xs font-semibold text-ink/70 mb-1'
 
 export default function ProfilePage() {
+  const { t } = useTranslation()
   const [profile, setProfile] = useState(null)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -29,7 +31,8 @@ export default function ProfilePage() {
         setFirstName(data.first_name)
         setLastName(data.last_name)
       })
-      .catch(() => setProfileError('Не удалось загрузить профиль'))
+      .catch(() => setProfileError(t('profile.loadError')))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleSaveProfile(event) {
@@ -43,7 +46,7 @@ export default function ProfilePage() {
       setProfileSaved(true)
       setTimeout(() => setProfileSaved(false), 2000)
     } catch {
-      setProfileError('Не удалось сохранить профиль')
+      setProfileError(t('profile.saveError'))
     } finally {
       setSavingProfile(false)
     }
@@ -55,7 +58,7 @@ export default function ProfilePage() {
     setPasswordChanged(false)
 
     if (newPassword !== confirmPassword) {
-      setPasswordError('Новые пароли не совпадают')
+      setPasswordError(t('profile.passwordMismatch'))
       return
     }
 
@@ -69,7 +72,7 @@ export default function ProfilePage() {
       setTimeout(() => setPasswordChanged(false), 2500)
     } catch (err) {
       const detail = err.response?.data
-      const message = detail ? Object.values(detail).flat().join(' ') : 'Не удалось сменить пароль'
+      const message = detail ? Object.values(detail).flat().join(' ') : t('profile.changeError')
       setPasswordError(message)
     } finally {
       setChangingPassword(false)
@@ -82,25 +85,25 @@ export default function ProfilePage() {
 
       <main className="flex-1 w-full max-w-2xl mx-auto p-4 md:p-6 lg:p-8">
         <header className="mb-6">
-          <h1 className="font-serif font-black text-2xl text-ink">Профиль</h1>
+          <h1 className="font-serif font-black text-2xl text-ink">{t('profile.title')}</h1>
         </header>
 
         {!profile ? (
-          <p className="text-ink/60">{profileError || 'Загрузка…'}</p>
+          <p className="text-ink/60">{profileError || t('common.loading')}</p>
         ) : (
           <div className="space-y-6">
-            <section className="bg-white border border-cream-border rounded-2xl p-5 shadow-xs">
+            <section className="bg-cream-light border border-cream-border rounded-2xl p-5 shadow-xs">
               <h2 className="font-serif font-black text-sm uppercase tracking-tight text-ink mb-3 flex items-center gap-1.5">
-                <User className="h-4 w-4 text-olive" /> Основное
+                <User className="h-4 w-4 text-olive" /> {t('settings.general')}
               </h2>
 
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className={labelClass}>Имя пользователя</label>
+                  <label className={labelClass}>{t('common.username')}</label>
                   <input value={profile.username} disabled className={`${inputClass} bg-cream-dark text-ink/50`} />
                 </div>
                 <div>
-                  <label className={labelClass}>Email</label>
+                  <label className={labelClass}>{t('common.email')}</label>
                   <input value={profile.email || '—'} disabled className={`${inputClass} bg-cream-dark text-ink/50`} />
                 </div>
               </div>
@@ -109,7 +112,7 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="profile-first-name" className={labelClass}>
-                      Имя
+                      {t('common.firstName')}
                     </label>
                     <input
                       id="profile-first-name"
@@ -120,7 +123,7 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <label htmlFor="profile-last-name" className={labelClass}>
-                      Фамилия
+                      {t('common.lastName')}
                     </label>
                     <input
                       id="profile-last-name"
@@ -144,21 +147,21 @@ export default function ProfilePage() {
                     className="px-4 py-2 text-xs font-semibold bg-olive text-white rounded-md hover:bg-olive-700 shadow-xs cursor-pointer disabled:opacity-55 flex items-center gap-1.5"
                   >
                     {profileSaved && <Check className="h-3.5 w-3.5" />}
-                    {savingProfile ? 'Сохраняем…' : profileSaved ? 'Сохранено' : 'Сохранить'}
+                    {savingProfile ? t('common.saving') : profileSaved ? t('common.saved') : t('common.save')}
                   </button>
                 </div>
               </form>
             </section>
 
-            <section className="bg-white border border-cream-border rounded-2xl p-5 shadow-xs">
+            <section className="bg-cream-light border border-cream-border rounded-2xl p-5 shadow-xs">
               <h2 className="font-serif font-black text-sm uppercase tracking-tight text-ink mb-3 flex items-center gap-1.5">
-                <KeyRound className="h-4 w-4 text-olive" /> Смена пароля
+                <KeyRound className="h-4 w-4 text-olive" /> {t('profile.changePasswordTitle')}
               </h2>
 
               <form onSubmit={handleChangePassword} className="space-y-3 max-w-sm">
                 <div>
                   <label htmlFor="old-password" className={labelClass}>
-                    Текущий пароль
+                    {t('profile.oldPassword')}
                   </label>
                   <input
                     id="old-password"
@@ -171,7 +174,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <label htmlFor="new-password" className={labelClass}>
-                    Новый пароль
+                    {t('profile.newPassword')}
                   </label>
                   <input
                     id="new-password"
@@ -184,7 +187,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <label htmlFor="confirm-password" className={labelClass}>
-                    Повторите новый пароль
+                    {t('profile.confirmPassword')}
                   </label>
                   <input
                     id="confirm-password"
@@ -209,7 +212,7 @@ export default function ProfilePage() {
                     className="px-4 py-2 text-xs font-semibold bg-olive text-white rounded-md hover:bg-olive-700 shadow-xs cursor-pointer disabled:opacity-55 flex items-center gap-1.5"
                   >
                     {passwordChanged && <Check className="h-3.5 w-3.5" />}
-                    {changingPassword ? 'Меняем…' : passwordChanged ? 'Пароль изменён' : 'Сменить пароль'}
+                    {changingPassword ? t('profile.changing') : passwordChanged ? t('profile.changed') : t('profile.changeSubmit')}
                   </button>
                 </div>
               </form>

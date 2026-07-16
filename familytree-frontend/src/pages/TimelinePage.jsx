@@ -12,12 +12,7 @@ import {
 } from 'lucide-react'
 import { fetchTimeline, getTree } from '../api/trees'
 import Navbar from '../components/Navbar'
-
-const TYPE_META = {
-  birth: { label: 'Рождения', Icon: Baby, chip: 'text-emerald-800 bg-emerald-50 border-emerald-200' },
-  death: { label: 'Смерти', Icon: Flower2, chip: 'text-stone-700 bg-stone-100 border-stone-300' },
-  life_event: { label: 'События', Icon: Star, chip: 'text-olive bg-olive/10 border-olive/20' },
-}
+import { useTranslation } from '../i18n/useTranslation'
 
 const COLLAPSE_THRESHOLD = 4
 
@@ -30,15 +25,22 @@ function personName(person) {
   return [person.last_name, person.first_name, person.patronymic].filter(Boolean).join(' ')
 }
 
-function entryLabel(entry) {
-  if (entry.type === 'birth') return `Родился(-ась) ${personName(entry.person)}`
-  if (entry.type === 'death') return `Не стало ${personName(entry.person)}`
-  return entry.title || 'Событие'
-}
-
 export default function TimelinePage() {
+  const { t } = useTranslation()
   const { treeId } = useParams()
   const navigate = useNavigate()
+
+  const TYPE_META = {
+    birth: { label: t('timeline.typeBirth'), Icon: Baby, chip: 'text-emerald-800 bg-emerald-50 border-emerald-200' },
+    death: { label: t('timeline.typeDeath'), Icon: Flower2, chip: 'text-stone-700 bg-stone-100 border-stone-300' },
+    life_event: { label: t('timeline.typeEvent'), Icon: Star, chip: 'text-olive bg-olive/10 border-olive/20' },
+  }
+
+  function entryLabel(entry) {
+    if (entry.type === 'birth') return t('timeline.born', { name: personName(entry.person) })
+    if (entry.type === 'death') return t('timeline.died', { name: personName(entry.person) })
+    return entry.title || t('timeline.typeEvent')
+  }
 
   const [treeName, setTreeName] = useState('')
   const [allPersons, setAllPersons] = useState([])
@@ -65,7 +67,8 @@ export default function TimelinePage() {
         setAllPersons(tree.persons)
         if (tree.persons.length > 0) setAnchorId(String(tree.persons[0].id))
       })
-      .catch(() => setError('Не удалось загрузить дерево'))
+      .catch(() => setError(t('treeDetail.loadError')))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [treeId])
 
   useEffect(() => {
@@ -84,8 +87,9 @@ export default function TimelinePage() {
 
     fetchTimeline(treeId, params)
       .then(setEntries)
-      .catch(() => setError('Не удалось загрузить хронологию'))
+      .catch(() => setError(t('timeline.loadError')))
       .finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [treeId, scope, anchorId, depth])
 
   const deceasedIds = useMemo(
@@ -129,7 +133,7 @@ export default function TimelinePage() {
   }
 
   const scopeInputClass =
-    'text-xs bg-white text-ink rounded-md border border-cream-border px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-olive'
+    'text-xs bg-cream-light text-ink rounded-md border border-cream-border px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-olive'
 
   return (
     <div className="min-h-screen bg-cream text-ink font-sans flex flex-col">
@@ -139,36 +143,36 @@ export default function TimelinePage() {
         <header className="mb-6 flex items-center justify-between gap-4 flex-wrap">
           <div>
             <p className="text-xs text-ink/50">{treeName}</p>
-            <h1 className="font-serif font-black text-2xl text-ink">Хронология семьи</h1>
+            <h1 className="font-serif font-black text-2xl text-ink">{t('timeline.title')}</h1>
           </div>
         </header>
 
         {/* --- фильтры --- */}
-        <div className="bg-white border border-cream-border rounded-2xl p-5 mb-6 space-y-4 shadow-xs">
+        <div className="bg-cream-light border border-cream-border rounded-2xl p-5 mb-6 space-y-4 shadow-xs">
           <div className="space-y-2">
-            <label className="block text-xs font-semibold text-ink/80">Охват:</label>
+            <label className="block text-xs font-semibold text-ink/80">{t('timeline.scopeLabel')}</label>
             <div className="grid grid-cols-3 gap-1.5">
               <button
                 onClick={() => setScope('all')}
-                className={`py-2 px-1 text-xs rounded-xl border flex flex-col items-center gap-1 cursor-pointer bg-white
+                className={`py-2 px-1 text-xs rounded-xl border flex flex-col items-center gap-1 cursor-pointer bg-cream-light
                   ${scope === 'all' ? 'border-olive bg-olive/5 text-olive font-semibold' : 'border-cream-border text-ink/60 hover:bg-cream-dark'}`}
               >
                 <Users className="h-3.5 w-3.5" />
-                Вся семья
+                {t('timeline.scopeAll')}
               </button>
               <button
                 onClick={() => setScope('ancestors')}
-                className={`py-2 px-1 text-xs rounded-xl border flex flex-col items-center gap-1 cursor-pointer bg-white
+                className={`py-2 px-1 text-xs rounded-xl border flex flex-col items-center gap-1 cursor-pointer bg-cream-light
                   ${scope === 'ancestors' ? 'border-olive bg-olive/5 text-olive font-semibold' : 'border-cream-border text-ink/60 hover:bg-cream-dark'}`}
               >
-                Прямые предки
+                {t('timeline.scopeAncestors')}
               </button>
               <button
                 onClick={() => setScope('zhety_ata')}
-                className={`py-2 px-1 text-xs rounded-xl border flex flex-col items-center gap-1 cursor-pointer bg-white
+                className={`py-2 px-1 text-xs rounded-xl border flex flex-col items-center gap-1 cursor-pointer bg-cream-light
                   ${scope === 'zhety_ata' ? 'border-olive bg-olive/5 text-olive font-semibold' : 'border-cream-border text-ink/60 hover:bg-cream-dark'}`}
               >
-                Жеті ата
+                {t('timeline.scopeZhetyAta')}
               </button>
             </div>
 
@@ -184,7 +188,7 @@ export default function TimelinePage() {
 
                 {scope === 'ancestors' && (
                   <label className="flex items-center gap-1.5 text-xs text-ink/70">
-                    поколений:
+                    {t('timeline.generationsLabel')}
                     <input
                       type="number"
                       min="1"
@@ -196,26 +200,21 @@ export default function TimelinePage() {
                   </label>
                 )}
 
-                {scope === 'zhety_ata' && (
-                  <p className="text-[11px] text-ink/50 italic">
-                    Семь поколений предков строго по мужской линии. Работает только там, где у предков указан пол —
-                    цепочка обрывается на первом человеке без пола (карточка «Редактировать», поле «Пол»).
-                  </p>
-                )}
+                {scope === 'zhety_ata' && <p className="text-[11px] text-ink/50 italic">{t('timeline.zhetyAtaHint')}</p>}
               </div>
             )}
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4 pt-1 border-t border-cream-border">
             <div className="space-y-1.5 pt-3">
-              <label className="block text-xs font-semibold text-ink/80">Типы событий:</label>
+              <label className="block text-xs font-semibold text-ink/80">{t('timeline.typesLabel')}</label>
               <div className="flex flex-wrap gap-1.5">
                 {Object.entries(TYPE_META).map(([type, meta]) => (
                   <button
                     key={type}
                     onClick={() => toggleType(type)}
                     className={`px-2.5 py-1 text-[11px] rounded-full border flex items-center gap-1 cursor-pointer transition
-                      ${typeFilter[type] ? meta.chip : 'text-ink/40 bg-white border-cream-border'}`}
+                      ${typeFilter[type] ? meta.chip : 'text-ink/40 bg-cream-light border-cream-border'}`}
                   >
                     <meta.Icon className="h-3 w-3" /> {meta.label}
                   </button>
@@ -224,20 +223,20 @@ export default function TimelinePage() {
             </div>
 
             <div className="space-y-1.5 pt-3">
-              <label className="block text-xs font-semibold text-ink/80">Живые / ушедшие:</label>
+              <label className="block text-xs font-semibold text-ink/80">{t('timeline.aliveLabel')}</label>
               <select value={aliveFilter} onChange={(e) => setAliveFilter(e.target.value)} className={scopeInputClass}>
-                <option value="all">Все</option>
-                <option value="alive">Только живые</option>
-                <option value="deceased">Только ушедшие</option>
+                <option value="all">{t('timeline.filterAll')}</option>
+                <option value="alive">{t('timeline.filterAlive')}</option>
+                <option value="deceased">{t('timeline.filterDeceased')}</option>
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-ink/80">Период:</label>
+              <label className="block text-xs font-semibold text-ink/80">{t('timeline.periodLabel')}</label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
-                  placeholder="с года"
+                  placeholder={t('timeline.yearFrom')}
                   value={yearFrom}
                   onChange={(e) => setYearFrom(e.target.value)}
                   className={`${scopeInputClass} w-24`}
@@ -245,7 +244,7 @@ export default function TimelinePage() {
                 <span className="text-ink/40 text-xs">—</span>
                 <input
                   type="number"
-                  placeholder="по год"
+                  placeholder={t('timeline.yearTo')}
                   value={yearTo}
                   onChange={(e) => setYearTo(e.target.value)}
                   className={`${scopeInputClass} w-24`}
@@ -261,7 +260,7 @@ export default function TimelinePage() {
                   onChange={(e) => setOnlyWithPhoto(e.target.checked)}
                   className="accent-olive"
                 />
-                <ImageIcon className="h-3.5 w-3.5" /> Только с фото
+                <ImageIcon className="h-3.5 w-3.5" /> {t('timeline.onlyPhoto')}
               </label>
             </div>
           </div>
@@ -277,12 +276,12 @@ export default function TimelinePage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-ink/50">
             <RefreshCw className="h-6 w-6 text-olive animate-spin mb-2" />
-            <p className="font-serif italic text-sm">Собираем хронологию…</p>
+            <p className="font-serif italic text-sm">{t('timeline.loadingText')}</p>
           </div>
         ) : decades.length === 0 ? (
           <div className="border border-dashed border-cream-border rounded-2xl py-14 px-6 text-center text-ink/60">
-            <p className="font-serif font-bold text-lg text-ink">Событий не найдено</p>
-            <p className="mt-1.5 text-sm">Попробуйте ослабить фильтры или выбрать другой охват.</p>
+            <p className="font-serif font-bold text-lg text-ink">{t('timeline.emptyTitle')}</p>
+            <p className="mt-1.5 text-sm">{t('timeline.emptyBody')}</p>
           </div>
         ) : (
           <div className="relative border-l border-cream-border pl-5 ml-2 space-y-6">
@@ -292,14 +291,14 @@ export default function TimelinePage() {
                 <div key={decade}>
                   <div className="flex items-center gap-2 mb-2 -ml-[29px]">
                     <div className="h-3 w-3 rounded-full bg-olive shrink-0" />
-                    <h2 className="font-serif font-black text-sm text-ink/80">{decade}-е</h2>
+                    <h2 className="font-serif font-black text-sm text-ink/80">{t('timeline.decadeSuffix', { decade })}</h2>
                     {items.length > COLLAPSE_THRESHOLD && (
                       <button
                         onClick={() => toggleDecade(decade)}
                         className="text-[11px] text-olive font-semibold flex items-center gap-0.5 cursor-pointer bg-transparent border-0 shadow-none px-1"
                       >
                         {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                        {items.length} событий
+                        {t('timeline.eventsCount', { n: items.length })}
                       </button>
                     )}
                   </div>
@@ -312,7 +311,7 @@ export default function TimelinePage() {
                           <button
                             key={entry.id}
                             onClick={() => openPerson(entry.person.id)}
-                            className="w-full flex items-center gap-3 bg-white border border-cream-border rounded-xl px-3.5 py-2.5 text-left hover:border-olive/40 hover:shadow-sm transition cursor-pointer"
+                            className="w-full flex items-center gap-3 bg-cream-light border border-cream-border rounded-xl px-3.5 py-2.5 text-left hover:border-olive/40 hover:shadow-sm transition cursor-pointer"
                           >
                             {entry.person.photo ? (
                               <img src={entry.person.photo} alt="" className="h-9 w-9 rounded-full object-cover border border-cream-border shrink-0" />
