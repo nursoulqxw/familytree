@@ -17,6 +17,7 @@ import AddPersonModal from '../components/AddPersonModal';
 import OfflineBanner from '../components/OfflineBanner';
 import { colors, radii } from '../theme/theme';
 import AppHeader from '../components/AppHeader';
+import TreeTabs from '../components/TreeTabs';
 
 const { width: SW } = Dimensions.get('window');
 const clamp = (v, mn, mx) => Math.min(Math.max(v, mn), mx);
@@ -96,6 +97,7 @@ export default function TreeGraphScreen({ route, navigation }) {
   const [loading, setLoading]   = useState(true);
   const [showAdd, setShowAdd]   = useState(false);
   const [saving, setSaving]     = useState(false);
+  const [activeTab, setActiveTab] = useState('members');
   const { isOnline, pendingCount, syncing, refreshPendingCount } = useNetworkStatus();
 
   const resetRef = React.useRef(() => {});
@@ -220,6 +222,10 @@ export default function TreeGraphScreen({ route, navigation }) {
       navigation={navigation}
       showBack
     />
+    <TreeTabs
+  activeTab={activeTab}
+  onChange={setActiveTab}
+/>
       <OfflineBanner isOnline={isOnline} syncing={syncing} pendingCount={pendingCount} />
 
       {Platform.OS === 'web' ? (

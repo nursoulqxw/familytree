@@ -21,6 +21,6 @@ const styles = StyleSheet.create({
   name:     { fontSize:17, fontWeight:'700', color:colors.ink, marginBottom:8 },
   pill:     { alignSelf:'flex-start', backgroundColor:colors.creamDark, borderRadius:radii.pill, paddingHorizontal:10, paddingVertical:3 },
   pillText: { fontSize:11.5, fontWeight:'600', color:colors.ink, opacity:0.7 },
-  del:      { marginTop:10, borderWidth:1, borderColor:colors.danger, borderRadius:15, padding:10, width:75, justifyContent: 'center', alignItems: 'center'  },
+  del:      { marginTop: 12, alignSelf: 'flex-start',borderWidth: 1,borderColor: colors.danger, borderRadius: 15,paddingHorizontal: 16, paddingVertical: 10, alignItems: 'center', justifyContent: 'center'},
   delText:  { color:colors.danger, fontSize:12.5, fontWeight:'600' },
 });

@@ -75,53 +75,74 @@ export default function DashboardScreen({ navigation }) {
   }, [load]);
 
   const handleCreate = async ({ name, privacy }) => {
-    setShowCreate(false);
+  setShowCreate(false);
+
+  try {
+    const tree = await createTree({
+      name,
+      privacy,
+    });
+
+    setTrees(prev => [...prev, tree]);
+  } catch {
+    Alert.alert(
+      'Ошибка',
+      'Не удалось создать дерево'
+    );
+  }
+};
+  
+  const handleDelete = async (tree) => {
+  if (Platform.OS === 'web') {
+    const ok = window.confirm(`Удалить дерево "${tree.name}"?`);
+
+    if (!ok) return;
 
     try {
-      const tree = await createTree({
-        name,
-        privacy,
-      });
+      await deleteTree(tree.id);
 
-      setTrees(prev => [...prev, tree]);
+      setTrees(prev =>
+        prev.filter(t => t.id !== tree.id)
+      );
     } catch {
       Alert.alert(
         'Ошибка',
-        'Не удалось создать дерево'
+        'Не удалось удалить дерево'
       );
     }
-  };
 
-  const handleDelete = tree => {
-    Alert.alert(
-      'Удалить дерево?',
-      tree.name,
-      [
-        {
-          text: 'Отмена',
-          style: 'cancel',
-        },
-        {
-          text: 'Удалить',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteTree(tree.id);
+    return;
+  }
 
-              setTrees(prev =>
-                prev.filter(t => t.id !== tree.id)
-              );
-            } catch {
-              Alert.alert(
-                'Ошибка',
-                'Не удалось удалить дерево'
-              );
-            }
-          },
+  Alert.alert(
+    'Удалить дерево?',
+    tree.name,
+    [
+      {
+        text: 'Отмена',
+        style: 'cancel',
+      },
+      {
+        text: 'Удалить',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteTree(tree.id);
+
+            setTrees(prev =>
+              prev.filter(t => t.id !== tree.id)
+            );
+          } catch {
+            Alert.alert(
+              'Ошибка',
+              'Не удалось удалить дерево'
+            );
+          }
         },
-      ]
-    );
-  };
+      },
+    ]
+  );
+};
 
   if (loading) {
     return (
@@ -185,7 +206,10 @@ export default function DashboardScreen({ navigation }) {
                 treeName: item.name,
               })
             }
-            onDelete={() => handleDelete(item)}
+            onDelete={() => {
+  console.log('DELETE CLICKED');
+  handleDelete(item);
+}}
           />
         )}
       />
