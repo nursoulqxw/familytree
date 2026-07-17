@@ -270,8 +270,8 @@ export default function FamilyTreeGraph({
           >
             {/* прозрачная более толстая линия сверху — увеличивает область клика */}
             <line x1={pos1.x} y1={pos1.y + 35} x2={pos2.x} y2={pos2.y + 35} stroke="transparent" strokeWidth="14" />
-            <line x1={pos1.x} y1={pos1.y + 35} x2={pos2.x} y2={pos2.y + 35} stroke="#5a5a40" strokeWidth="2" strokeDasharray="4 2" opacity="0.8" />
-            <circle cx={(pos1.x + pos2.x) / 2} cy={(pos1.y + pos2.y) / 2 + 35} r="9" fill="#f5f5f0" stroke="#5a5a40" strokeWidth="1.5" />
+            <line x1={pos1.x} y1={pos1.y + 35} x2={pos2.x} y2={pos2.y + 35} stroke="var(--color-olive)" strokeWidth="2" strokeDasharray="4 2" opacity="0.8" />
+            <circle cx={(pos1.x + pos2.x) / 2} cy={(pos1.y + pos2.y) / 2 + 35} r="9" fill="var(--color-cream)" stroke="var(--color-olive)" strokeWidth="1.5" />
           </g>,
         )
 
@@ -281,7 +281,7 @@ export default function FamilyTreeGraph({
           const midY = (pos1.y + pos2.y) / 2 + 35
           const busY = midY + 45
           lines.push(
-            <line key={`spouse-down-${key}`} x1={midX} y1={midY + 9} x2={midX} y2={busY} stroke="#5a5a40" strokeWidth="1.5" strokeDasharray="4" />,
+            <line key={`spouse-down-${key}`} x1={midX} y1={midY + 9} x2={midX} y2={busY} stroke="var(--color-olive)" strokeWidth="1.5" strokeDasharray="4" />,
           )
           common.forEach((childId) => {
             const cp = finalPositions[childId]
@@ -291,7 +291,7 @@ export default function FamilyTreeGraph({
                 key={`bus-${key}-${childId}`}
                 d={`M ${midX} ${busY} L ${cp.x} ${busY} L ${cp.x} ${cp.y - 35}`}
                 fill="none"
-                stroke="#5a5a40"
+                stroke="var(--color-olive)"
                 strokeWidth="1.5"
                 strokeDasharray="4"
                 strokeLinecap="round"
@@ -324,7 +324,7 @@ export default function FamilyTreeGraph({
           className={onEdgeClick ? 'cursor-pointer' : undefined}
         >
           <path d={d} fill="none" stroke="transparent" strokeWidth="14" />
-          <path d={d} fill="none" stroke="#d1d1c4" strokeWidth="1.5" strokeDasharray="4" opacity="0.9" />
+          <path d={d} fill="none" stroke="var(--color-cream-line)" strokeWidth="1.5" strokeDasharray="4" opacity="0.9" />
         </g>,
       )
     })
@@ -378,7 +378,7 @@ export default function FamilyTreeGraph({
           )}
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto justify-end">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
           <button
             onClick={() => setShowAddForm(true)}
             className="px-4 py-2 text-xs font-medium bg-olive text-white rounded-lg hover:bg-olive-700 transition shadow-xs flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
@@ -394,20 +394,6 @@ export default function FamilyTreeGraph({
               <Users className="h-3.5 w-3.5 text-olive" /> {t('common.addRelationship')}
             </button>
           )}
-
-          <div className="h-4 w-px bg-cream-border mx-1" />
-
-          <div className="flex bg-cream-dark rounded-lg p-0.5 border border-cream-border shrink-0">
-            <button onClick={handleZoomOut} title={t('graph.zoomOut')} className="p-1.5 text-ink/70 hover:text-ink rounded-md hover:bg-ink/5 cursor-pointer bg-transparent border-0 shadow-none">
-              <ZoomOut className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={handleZoomReset} title={t('graph.zoomReset')} className="p-1.5 text-ink/70 hover:text-ink rounded-md hover:bg-ink/5 cursor-pointer bg-transparent border-0 shadow-none">
-              <Maximize className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={handleZoomIn} title={t('graph.zoomIn')} className="p-1.5 text-ink/70 hover:text-ink rounded-md hover:bg-ink/5 cursor-pointer bg-transparent border-0 shadow-none">
-              <ZoomIn className="h-3.5 w-3.5" />
-            </button>
-          </div>
         </div>
       </div>
 
@@ -422,11 +408,23 @@ export default function FamilyTreeGraph({
         <div
           id="canvas-bg"
           className="absolute inset-0 opacity-[0.05] pointer-events-none"
-          style={{ backgroundImage: 'radial-gradient(#5a5a40 1px, transparent 1px)', backgroundSize: '24px 24px' }}
+          style={{ backgroundImage: 'radial-gradient(var(--color-olive) 1px, transparent 1px)', backgroundSize: '24px 24px' }}
         />
 
         <div className="absolute left-4 bottom-4 bg-cream-light/90 backdrop-blur-xs border border-cream-border px-3 py-1.5 rounded-md text-xs font-mono text-ink/70 shadow-xs select-none pointer-events-none">
           {t('graph.zoomLabel', { n: Math.round(zoom * 100) })}
+        </div>
+
+        <div className="absolute top-4 right-4 flex bg-cream-light/90 backdrop-blur-xs rounded-lg p-0.5 border border-cream-border shadow-xs">
+          <button onClick={handleZoomOut} title={t('graph.zoomOut')} className="p-1.5 text-ink/70 hover:text-ink rounded-md hover:bg-ink/5 cursor-pointer bg-transparent border-0 shadow-none">
+            <ZoomOut className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={handleZoomReset} title={t('graph.zoomReset')} className="p-1.5 text-ink/70 hover:text-ink rounded-md hover:bg-ink/5 cursor-pointer bg-transparent border-0 shadow-none">
+            <Maximize className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={handleZoomIn} title={t('graph.zoomIn')} className="p-1.5 text-ink/70 hover:text-ink rounded-md hover:bg-ink/5 cursor-pointer bg-transparent border-0 shadow-none">
+            <ZoomIn className="h-3.5 w-3.5" />
+          </button>
         </div>
 
         <div className="absolute right-4 bottom-4 bg-cream-light/90 backdrop-blur-xs border border-cream-border px-3 py-1.5 rounded-md text-[10px] text-ink/60 shadow-xs select-none pointer-events-none flex items-center gap-1 max-w-xs">
@@ -461,7 +459,7 @@ export default function FamilyTreeGraph({
                   className={`absolute w-[190px] p-4 rounded-xl border text-left cursor-pointer transition-all pointer-events-auto select-none shadow-xs hover:shadow-md
                     ${
                       isSelected
-                        ? 'bg-[#fcfaf2] border-olive ring-2 ring-olive/20 z-40'
+                        ? 'bg-cream-light border-olive ring-2 ring-olive/20 z-40'
                         : isMatch
                           ? 'bg-amber-50/50 border-amber-500 ring-2 ring-amber-500/20 z-30'
                           : 'bg-cream-light border-cream-border hover:border-olive/50 z-10'

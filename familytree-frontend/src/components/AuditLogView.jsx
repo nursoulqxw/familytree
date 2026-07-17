@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileClock, RefreshCcw, Settings, Trash2, User, UserPlus, Users } from 'lucide-react'
+import { Calendar, FileClock, Image, RefreshCcw, Settings, Trash2, User, UserMinus, UserPlus, Users } from 'lucide-react'
 import { fetchAuditLog } from '../api/trees'
 import { useTranslation } from '../i18n/useTranslation'
 import { useAuthStore } from '../store/authStore'
@@ -17,7 +17,14 @@ export default function AuditLogView({ treeId }) {
     'create:Relationship': { icon: <Users className="h-3 w-3 text-blue-700" />, label: t('audit.createRelationship'), bg: 'bg-blue-50 text-blue-800 border-blue-100' },
     'delete:Relationship': { icon: <Trash2 className="h-3 w-3 text-rose-700" />, label: t('audit.deleteRelationship'), bg: 'bg-rose-50 text-rose-800 border-rose-100' },
     'update:Relationship': { icon: <Users className="h-3 w-3 text-blue-700" />, label: t('audit.updateRelationship'), bg: 'bg-blue-50 text-blue-800 border-blue-100' },
-    'update:TreeSettings': { icon: <Settings className="h-3 w-3 text-gray-700" />, label: t('audit.updateTreeSettings'), bg: 'bg-gray-50 text-gray-800 border-gray-100' },
+    'update:FamilyTree': { icon: <Settings className="h-3 w-3 text-gray-700" />, label: t('audit.updateTreeSettings'), bg: 'bg-gray-50 text-gray-800 border-gray-100' },
+    'create:LifeEvent': { icon: <Calendar className="h-3 w-3 text-emerald-700" />, label: t('audit.createLifeEvent'), bg: 'bg-emerald-50 text-emerald-800 border-emerald-100' },
+    'update:LifeEvent': { icon: <Calendar className="h-3 w-3 text-olive" />, label: t('audit.updateLifeEvent'), bg: 'bg-olive/5 text-olive border-olive/10' },
+    'delete:LifeEvent': { icon: <Trash2 className="h-3 w-3 text-red-600" />, label: t('audit.deleteLifeEvent'), bg: 'bg-red-50 text-red-800 border-red-100' },
+    'create:Media': { icon: <Image className="h-3 w-3 text-emerald-700" />, label: t('audit.createMedia'), bg: 'bg-emerald-50 text-emerald-800 border-emerald-100' },
+    'update:Media': { icon: <Image className="h-3 w-3 text-olive" />, label: t('audit.updateMedia'), bg: 'bg-olive/5 text-olive border-olive/10' },
+    'delete:Media': { icon: <Trash2 className="h-3 w-3 text-red-600" />, label: t('audit.deleteMedia'), bg: 'bg-red-50 text-red-800 border-red-100' },
+    'delete:TreeMember': { icon: <UserMinus className="h-3 w-3 text-rose-700" />, label: t('audit.removeMember'), bg: 'bg-rose-50 text-rose-800 border-rose-100' },
   }
 
   function styleFor(log) {

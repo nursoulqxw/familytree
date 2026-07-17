@@ -21,8 +21,10 @@ export default function PersonModal({ treeId, person, onClose, onSaved, onDelete
         await createPerson(treeId, data)
       }
       onSaved()
-    } catch {
-      setError(t('personModal.saveError'))
+    } catch (err) {
+      const detail = err.response?.data
+      const message = detail ? Object.values(detail).flat().join(' ') : t('personModal.saveError')
+      setError(message)
     } finally {
       setSubmitting(false)
     }
@@ -44,7 +46,11 @@ export default function PersonModal({ treeId, person, onClose, onSaved, onDelete
 
   return (
     <Modal title={isEdit ? t('personModal.editTitle') : t('personModal.addTitle')} onClose={onClose}>
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p role="alert" className="text-rose-900 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-xs mb-3">
+          {error}
+        </p>
+      )}
       <PersonForm
         initialPerson={person}
         onSubmit={handleSubmit}

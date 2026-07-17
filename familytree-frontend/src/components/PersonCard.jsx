@@ -6,7 +6,7 @@ export default function PersonCard({ person, onEdit, onDelete }) {
   const years = person.birth_date || person.death_date ? `${yearOf(person.birth_date)} – ${yearOf(person.death_date)}` : null
 
   return (
-    <div className="border border-cream-border rounded-2xl p-5 text-center bg-white">
+    <div className="border border-cream-border rounded-2xl p-5 text-center bg-cream-light">
       {person.photo ? (
         <img
           className="h-20 w-20 rounded-full object-cover mx-auto mb-2.5 border-2 border-cream-dark"
@@ -34,7 +34,7 @@ export default function PersonCard({ person, onEdit, onDelete }) {
           <button
             type="button"
             onClick={() => onEdit(person)}
-            className="text-xs font-medium border border-cream-border bg-white hover:bg-cream-dark px-3 py-1.5 rounded-lg cursor-pointer"
+            className="text-xs font-medium border border-cream-border bg-cream-light hover:bg-cream-dark px-3 py-1.5 rounded-lg cursor-pointer"
           >
             Редактировать
           </button>
@@ -43,7 +43,7 @@ export default function PersonCard({ person, onEdit, onDelete }) {
           <button
             type="button"
             onClick={() => onDelete(person.id)}
-            className="text-xs font-medium text-rose-700 border border-rose-200 bg-white hover:bg-rose-50 px-3 py-1.5 rounded-lg cursor-pointer"
+            className="text-xs font-medium text-rose-700 border border-rose-200 bg-cream-light hover:bg-rose-50 px-3 py-1.5 rounded-lg cursor-pointer"
           >
             Удалить
           </button>

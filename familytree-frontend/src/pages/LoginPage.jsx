@@ -5,9 +5,13 @@ import { login } from '../api/auth'
 import BrandMark from '../components/BrandMark'
 import { useTranslation } from '../i18n/useTranslation'
 import { useAuthStore } from '../store/authStore'
+import { LANGUAGES, useUiStore } from '../store/uiStore'
+
+const LANGUAGE_LABELS = { ru: 'РУС', kk: 'ҚАЗ', en: 'ENG' }
 
 export default function LoginPage() {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
+  const setLanguage = useUiStore((state) => state.setLanguage)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -49,7 +53,22 @@ export default function LoginPage() {
         <div className="absolute -bottom-24 -right-16 w-96 h-96 rounded-full bg-white/5" />
       </div>
 
-      <div className="flex items-center justify-center p-8 md:p-12">
+      <div className="flex items-center justify-center p-8 md:p-12 relative">
+        <div className="absolute top-4 right-4 flex items-center gap-0.5 bg-cream-dark border border-cream-border rounded-lg p-0.5" role="group" aria-label={t('nav.language')}>
+          {LANGUAGES.map((lang) => (
+            <button
+              key={lang}
+              type="button"
+              onClick={() => setLanguage(lang)}
+              title={lang}
+              className={`px-1.5 py-1 text-[10px] font-bold rounded-md cursor-pointer transition bg-transparent border-0 shadow-none
+                ${language === lang ? 'bg-olive text-white' : 'text-ink/50 hover:text-ink'}`}
+            >
+              {LANGUAGE_LABELS[lang]}
+            </button>
+          ))}
+        </div>
+
         <div className="w-full max-w-sm">
           <div className="h-10 w-10 bg-olive text-white rounded-lg flex items-center justify-center shadow-xs mb-5 md:hidden">
             <BookOpen className="h-5.5 w-5.5" />

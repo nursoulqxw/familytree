@@ -207,7 +207,7 @@ export default function MemberProfile({ treeId, person, onClose, onEditRequest, 
               onChange={(e) => setBio(e.target.value)}
               rows={8}
               placeholder={t('memberProfile.bioPlaceholder')}
-              className="w-full text-sm leading-relaxed bg-[#fcfaf6] p-3 text-ink border border-cream-border rounded-lg focus:outline-none focus:ring-1 focus:ring-olive"
+              className="w-full text-sm leading-relaxed bg-cream-light p-3 text-ink border border-cream-border rounded-lg focus:outline-none focus:ring-1 focus:ring-olive"
             />
             <div className="flex justify-end">
               <button

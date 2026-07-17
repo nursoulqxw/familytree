@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: devuser
       POSTGRES_PASSWORD: devpassword
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,7 +22,7 @@ services:
     container_name: ft_redis
     restart: always
     ports:
-      - "6379:6379"
+      - "6380:6379"
 
   backend:
     build: ./familytree-backend
