@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Родовое древо",
+    "slug": "familytree-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Нужен доступ к камере для фото профиля.",
+        "NSPhotoLibraryUsageDescription": "Нужен доступ к галерее для фото профиля."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#f5f5f0"
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Нужен доступ к галерее для фото профиля.",
+          "cameraPermission": "Нужен доступ к камере для фото профиля."
+        }
+      ],
+      "expo-secure-store"
+    ]
+  }
+}
