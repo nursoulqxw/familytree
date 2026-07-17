@@ -38,7 +38,7 @@ export default function LoginScreen({ navigation }) {
           {loading ? <ActivityIndicator color={colors.white}/> : <Text style={styles.btnTxt}>Войти</Text>}
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate('Register')} style={{marginTop:14,alignItems:'center'}}>
-          <Text style={{ fontSize: 13, color: colors.olive800 }}>Нет аккаунта?{' '}<Text style={{ fontWeight: '700' }}>Зарегистрироваться</Text></Text>
+          <Text style={{ fontFamily:'Times',fontSize: 13, color: colors.olive800 }}>Нет аккаунта?{' '}<Text style={{ fontWeight: '700' }}>Зарегистрироваться</Text></Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -53,8 +53,8 @@ const styles = StyleSheet.create({
   brandTitle2: {fontSize:20, fontFamily:'Times', fontWeight:'800',color:colors.ink, marginBottom:10},
   brandSubSub:  {fontSize:17,color:colors.ink,opacity:0.6,fontFamily:'Times',marginBottom:2,textAlign:'center'},
   card:      {backgroundColor:colors.creamLight,borderRadius:radii.lg,borderWidth:0.1,borderColor:colors.creamBorder,padding:20},
-  lbl:       {fontSize:12.5,fontWeight:'600',color:colors.ink,opacity:0.75,marginBottom:6},
+  lbl:       {fontFamily:'Times',fontSize:12.5,fontWeight:'600',color:colors.ink,opacity:0.75,marginBottom:6},
   input:     {borderWidth:1,borderColor:colors.creamBorder,borderRadius:radii.sm,paddingHorizontal:12,paddingVertical:11,fontSize:15,color:colors.ink,backgroundColor:colors.white},
   btn:       {backgroundColor:colors.olive,borderRadius:radii.sm,paddingVertical:13,alignItems:'center',marginTop:18},
-  btnTxt:    {color:colors.white,fontWeight:'700',fontSize:15},
+  btnTxt:    {color:colors.white,fontFamily:'Times',fontWeight:'700',fontSize:15},
 });
