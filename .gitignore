@@ -26,6 +26,9 @@ dist/
 build/
 .output/
 
+# React Native / Expo
+.expo/
+
 # IDE и системные файлы
 .vscode/
 .idea/
