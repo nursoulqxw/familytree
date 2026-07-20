@@ -14,6 +14,7 @@
 """
 from django.conf import settings
 from django.contrib import admin
+from django.http import HttpResponse
 from django.urls import path, include, re_path
 from django.views.static import serve as serve_media
 from rest_framework.routers import DefaultRouter
@@ -30,6 +31,10 @@ router.register(r'trees', FamilyTreeViewSet, basename='tree')
 router.register(r'notifications', NotificationViewSet, basename='notification')
 
 urlpatterns = [
+    # Health-check для Render/докера — без БД и без drf-spectacular (генерация OpenAPI-схемы
+    # на /api/schema/ слишком медленная на бесплатном 0.1 CPU и роняла health-check по таймауту).
+    path('healthz/', lambda request: HttpResponse('ok')),
+
     path('admin/', admin.site.urls),
 
     # OpenAPI-схема и её визуализация (Swagger UI / Redoc)
